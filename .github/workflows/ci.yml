@@ -23,6 +23,7 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             flex \
+            libfl-dev \
             bison \
             libboost-filesystem-dev \
             libboost-program-options-dev
