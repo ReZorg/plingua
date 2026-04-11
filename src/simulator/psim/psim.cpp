@@ -21,11 +21,17 @@ int main(int argc, char *argv[])
 				simulator.step();
 			}
 			// Save the final configuration to the output file
-			saveToFile(simulator.getOutputFile(), simulator.getCurrentConfiguration(), "configuration");
+			try {
+				saveToFile(simulator.getOutputFile(), simulator.getCurrentConfiguration(), "configuration");
+			} catch (std::exception& ex) {
+				std::cerr << "Error writing output file '" << simulator.getOutputFile() << "': " << ex.what() << std::endl;
+				return 1;
+			}
 		}
 	} catch (std::exception& ex) {
 		std::cout << ex.what() << std::endl;
 		std::cout << "type '" << argv[0] << " --help' for help" << std::endl;
+		return 1;
 	} 
 	return 0;
 }
