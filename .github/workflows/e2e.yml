@@ -183,7 +183,9 @@ jobs:
           )
 
           STEPS=3
-          SEED=42  # Fixed seed for reproducible CI runs
+          # Arbitrary but consistent seed for reproducible CI runs. Any value works;
+          # 42 is chosen as a conventional placeholder (ref: "Hitchhiker's Guide").
+          SEED=42
           PASS=0
           FAIL=0
 

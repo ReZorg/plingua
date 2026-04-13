@@ -121,10 +121,12 @@ void Simulator::selectRules()
 				std::size_t max = getMaxApplications(membranes[i],rules[j]);
 				std::size_t applications = randomized ? RANDOM(max+1) : max;
 				
-				// Apply probabilistic rule selection when probability feature is present
+				// Probabilistic rule selection: When a rule has a probability feature,
+				// each of the 'max' potential applications is independently accepted 
+				// with the specified probability (binomial trial). This implements
+				// the stochastic semantics of probabilistic P systems.
 				if (randomized && rules[j].features.count("probability") > 0 && max > 0) {
 					double prob = rules[j].features.at("probability").as_double();
-					// For each potential application, use probability to decide
 					applications = 0;
 					for (std::size_t k = 0; k < max; k++) {
 						if (RANDOM() < prob) {
@@ -262,7 +264,10 @@ void Simulator::produce(unsigned membraneId, const OMembrane& lhrMembrane, const
 			}
 		}
 		if (!found) {
-			throw std::runtime_error("Unable to produce");
+			std::ostringstream ss;
+			ss << "Unable to produce: child membrane with label '" << im.label 
+			   << "' not found in membrane " << membraneId;
+			throw std::runtime_error(ss.str());
 		}
 		configuration.membranes[m.children[i]].charge = im.charge;
 		add(configuration.membranes[m.children[i]].multiset,im.multiset,applications);
