@@ -21,6 +21,8 @@ public:
 	const std::string& getOutputFile() const {return outputFile;}
 	const std::string& getConfigurationFile() const {return configurationFile;}
 	bool isRandomized() const {return randomized;}
+	bool hasSeed() const {return seedProvided;}
+	unsigned getSeed() const {return seed;}
 
 protected:
 	bool randomized;
@@ -31,6 +33,8 @@ private:
 	
 	int verbosityLevel;
 	unsigned steps;
+	unsigned seed;
+	bool seedProvided;
 				
 	std::string inputFile;
 	std::string outputFile;

@@ -196,7 +196,7 @@ jobs:
 
             simout="/tmp/${prog%.pli}_prob_sim.json"
             echo -n "  psim  $prog  ($STEPS steps, randomized) ... "
-            if "$PSIM" "$binfile" -s "$STEPS" -r -o "$simout" \
+            if "$PSIM" "$binfile" -s "$STEPS" -r --seed 42 -o "$simout" \
                  > /tmp/psim_out.txt 2>&1; then
               if [ -s "$simout" ]; then
                 echo "PASS"
