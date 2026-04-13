@@ -175,6 +175,8 @@ jobs:
             Avian_Scavengers.pli
             tritrophic.pli
             zebra_mussel.pli
+            bearded_vulture_2_0.pli
+            bv_model_bwmc12.pli
           )
 
           STEPS=3
