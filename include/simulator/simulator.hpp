@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <cmath>
 #include <map>
 #include <queue>
 #include <limits>
@@ -119,7 +120,23 @@ void Simulator::selectRules()
 			Shuffler<Rule> rules(ruleSets[membranes[i].label][membranes[i].charge],randomized);
 			for (unsigned j = 0; j< rules.size(); j++) {
 				std::size_t max = getMaxApplications(membranes[i],rules[j]);
-				std::size_t applications = randomized ? RANDOM(max+1) : max;
+				bool isProbabilistic = rules[j].features.count("probability") > 0;
+				std::size_t applications;
+				if (isProbabilistic) {
+					double prob = rules[j].features.at("probability").as_double();
+					if (randomized) {
+						// Stochastic rounding: base applications + Bernoulli trial
+						// on the fractional part gives an unbiased integer count.
+						double scaled = max * prob;
+						std::size_t base = (std::size_t)scaled;
+						double remainder = scaled - base;
+						applications = base + (RANDOM() < remainder ? 1 : 0);
+					} else {
+						applications = (std::size_t)std::round(max * prob);
+					}
+				} else {
+					applications = randomized ? RANDOM(max+1) : max;
+				}
 				if (rules[j].features.count("priority")>0) {
 					if (rules[j].features.at("priority").cast_long() > membranes[i].priorityLevel) {
 						applications = 0;
@@ -131,7 +148,9 @@ void Simulator::selectRules()
 					selectedRules[membranes(i)][rules(j)] += applications;
 					consume(membranes[i],rules[j],applications);
 				}
-				remainingApplications += (max - applications);
+				if (!isProbabilistic) {
+					remainingApplications += (max - applications);
+				}
 			}
 		}
 	} while (remainingApplications > 0);
@@ -249,7 +268,7 @@ void Simulator::produce(unsigned membraneId, const OMembrane& lhrMembrane, const
 			}
 		}
 		if (!found) {
-			throw new std::runtime_error("Unable to produce");
+			throw std::runtime_error("Unable to produce");
 		}
 		configuration.membranes[m.children[i]].charge = im.charge;
 		add(configuration.membranes[m.children[i]].multiset,im.multiset,applications);
@@ -491,6 +510,32 @@ std::size_t Simulator::getMaxApplications(const CMembrane& m, const Rule& rule) 
 		}	
 	}
 	
+	// For communication rules with different LHS/RHS inner-membrane labels,
+	// verify every RHS target membrane actually exists as a child.
+	for (unsigned rhs_i = 0; rhs_i < rule.rhr.data.size(); rhs_i++) {
+		for (const IMembrane& rhs_im : rule.rhr.data[rhs_i].data) {
+			bool matchesLHS = false;
+			for (const IMembrane& lhs_im : lhr.membrane.data) {
+				if (lhs_im.label == rhs_im.label) {
+					matchesLHS = true;
+					break;
+				}
+			}
+			if (!matchesLHS) {
+				bool targetFound = false;
+				for (unsigned ci : m.children) {
+					if (configuration.membranes[ci].label == rhs_im.label) {
+						targetFound = true;
+						break;
+					}
+				}
+				if (!targetFound) {
+					return 0;
+				}
+			}
+		}
+	}
+	
 	
 	if (rule.arrow==1) {
 		found = false;
@@ -564,9 +609,6 @@ bool Simulator::ruleSupportedArrow0(const Rule& rule)
 		}
 		
 		for (unsigned j=0;j< rule.lhr.membrane.data.size(); j++) {
-			if (rule.lhr.membrane.data[j].label != rule.rhr.data[i].data[j].label) {
-				return false;
-			}
 			if (rule.lhr.membrane.data[j].multiset.count("@d")>0) {
 				return false;
 			}
@@ -615,10 +657,6 @@ bool Simulator::ruleSupportedArrow1(const Rule& rule)
 inline
 bool Simulator::ruleSupported(const Rule& rule)
 {
-	if  (rule.features.count("probability")> 0) {
-		return false;
-	}
-	
 	if (rule.arrow == 0) {
 		return ruleSupportedArrow0(rule);
 	} 
@@ -648,6 +686,10 @@ bool Simulator::parse(int argc, char *argv[])
 		finished = true;
 		return false;
 	}
+	
+	if (hasSeed()) {
+		RANDOM.setSeed(getSeed());
+	}
 
 	loadFromFile(getInputFile(),file);
 	
@@ -663,7 +705,7 @@ bool Simulator::parse(int argc, char *argv[])
 			 std::ostringstream ss;
 			 ss << "Rule not supported: "<< rule ;
 			 std::cout << ss.str() <<std::endl;
-			 throw new std::runtime_error(ss.str());
+			 throw std::runtime_error(ss.str());
 		}
 		ruleSets[rule.lhr.membrane.label][rule.lhr.membrane.charge].push_back(rule);
 	}	
