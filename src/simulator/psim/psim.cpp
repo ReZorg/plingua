@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 			}
 			// Save the final configuration to the output file
 			try {
-				saveToFile(simulator.getOutputFile(), simulator.getCurrentConfiguration(), "configuration");
+				saveToFile(simulator.getOutputFile(), simulator.getCurrentConfiguration(), "file");
 			} catch (std::exception& ex) {
 				std::cerr << "Error writing output file '" << simulator.getOutputFile() << "': " << ex.what() << std::endl;
 				return 1;
