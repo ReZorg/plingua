@@ -120,6 +120,19 @@ void Simulator::selectRules()
 			for (unsigned j = 0; j< rules.size(); j++) {
 				std::size_t max = getMaxApplications(membranes[i],rules[j]);
 				std::size_t applications = randomized ? RANDOM(max+1) : max;
+				
+				// Apply probabilistic rule selection when probability feature is present
+				if (randomized && rules[j].features.count("probability") > 0 && max > 0) {
+					double prob = rules[j].features.at("probability").as_double();
+					// For each potential application, use probability to decide
+					applications = 0;
+					for (std::size_t k = 0; k < max; k++) {
+						if (RANDOM() < prob) {
+							applications++;
+						}
+					}
+				}
+				
 				if (rules[j].features.count("priority")>0) {
 					if (rules[j].features.at("priority").cast_long() > membranes[i].priorityLevel) {
 						applications = 0;
@@ -249,7 +262,7 @@ void Simulator::produce(unsigned membraneId, const OMembrane& lhrMembrane, const
 			}
 		}
 		if (!found) {
-			throw new std::runtime_error("Unable to produce");
+			throw std::runtime_error("Unable to produce");
 		}
 		configuration.membranes[m.children[i]].charge = im.charge;
 		add(configuration.membranes[m.children[i]].multiset,im.multiset,applications);
@@ -615,8 +628,13 @@ bool Simulator::ruleSupportedArrow1(const Rule& rule)
 inline
 bool Simulator::ruleSupported(const Rule& rule)
 {
-	if  (rule.features.count("probability")> 0) {
-		return false;
+	// Rules with probability are now supported in randomized mode
+	// Validate probability value if present (defensive check)
+	if (rule.features.count("probability") > 0) {
+		double prob = rule.features.at("probability").as_double();
+		if (prob < 0.0 || prob > 1.0) {
+			return false;
+		}
 	}
 	
 	if (rule.arrow == 0) {
@@ -649,6 +667,16 @@ bool Simulator::parse(int argc, char *argv[])
 		return false;
 	}
 
+	// Set random seed if provided via command line
+	if (hasSeed()) {
+		RANDOM.setSeed(getSeed());
+		if (getVerbosityLevel() > 0) {
+			std::cout << "Using random seed: " << getSeed() << std::endl;
+		}
+	} else if (getVerbosityLevel() > 0) {
+		std::cout << "Using random seed: " << RANDOM.getSeed() << std::endl;
+	}
+
 	loadFromFile(getInputFile(),file);
 	
 	if (getConfigurationFile().empty()) {
@@ -663,7 +691,7 @@ bool Simulator::parse(int argc, char *argv[])
 			 std::ostringstream ss;
 			 ss << "Rule not supported: "<< rule ;
 			 std::cout << ss.str() <<std::endl;
-			 throw new std::runtime_error(ss.str());
+			 throw std::runtime_error(ss.str());
 		}
 		ruleSets[rule.lhr.membrane.label][rule.lhr.membrane.charge].push_back(rule);
 	}	

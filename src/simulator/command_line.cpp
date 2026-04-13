@@ -12,6 +12,8 @@ CommandLine::CommandLine()
 : randomized(false),
   verbosityLevel(0),
   steps(0),
+  seed(0),
+  seedSet(false),
   outputFile("a.json") {}
 
 bool CommandLine::parse(int argc, char *argv[])
@@ -20,6 +22,8 @@ bool CommandLine::parse(int argc, char *argv[])
 	randomized = false;
 	verbosityLevel = 0;
 	steps = 0;
+	seed = 0;
+	seedSet = false;
 	bool ready = false;
 	inputFile = "";
 	outputFile = "a.json";
@@ -34,6 +38,7 @@ bool CommandLine::parse(int argc, char *argv[])
 	("license,l", "show the GPLv3 license")
 	("verbosity,v", po::value<int>(), "set the verbosity level")
 	("randomized,r", "set randomized feature")
+	("seed", po::value<unsigned>(), "set the random seed for reproducible simulations")
 	("steps,s", po::value<int>(), "set the number of steps to simulate")
 	("configuration,c", po::value<string>(),"set the initial configuration file")
 	("output,o", po::value<string>(),"set the output file")
@@ -69,6 +74,10 @@ bool CommandLine::parse(int argc, char *argv[])
 		}
 		if (vm.count("steps")) {
 			steps = vm["steps"].as<int>();
+		}
+		if (vm.count("seed")) {
+			seed = vm["seed"].as<unsigned>();
+			seedSet = true;
 		}
 		if (vm.count("output")) {
 			outputFile = vm["output"].as<string>();
