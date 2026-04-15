@@ -55,4 +55,3 @@ Complexity levels: **L1 = introductory**, **L2 = intermediate**, **L3 = advanced
 3. `todo_tissue_sat_minimal.pli` (Tissue-like, SAT, L1)
 4. `todo_sat_active_membranes_minimal.pli` (Cell-like active membranes, SAT, L1)
 5. `todo_transition_language_acceptor.pli` (Transition, formal-language baseline, L1)
-
