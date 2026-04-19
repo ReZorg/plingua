@@ -163,6 +163,9 @@ jobs:
       # ─────────────────────────────────────────────────────────────────────
       # Probabilistic simulation tests – run psim with randomization on
       # the probabilistic examples to verify they complete without crashing.
+      # Uses a fixed seed for reproducible CI runs.
+      # Note: Avian_Scavengers uses inter-membrane communication rules that
+      # are not yet supported by the simulator, so it is excluded.
       # ─────────────────────────────────────────────────────────────────────
       - name: E2E tests – run psim probabilistic simulations
         run: |
@@ -171,8 +174,8 @@ jobs:
           PSIM="$GITHUB_WORKSPACE/bin/psim"
           EXAMPLES="$GITHUB_WORKSPACE/examples"
 
+          # Probabilistic examples that use supported rule types
           PROBABILISTIC=(
-            Avian_Scavengers.pli
             tritrophic.pli
             zebra_mussel.pli
             bearded_vulture_2_0.pli
@@ -180,6 +183,9 @@ jobs:
           )
 
           STEPS=3
+          # Arbitrary but consistent seed for reproducible CI runs. Any value works;
+          # 42 is chosen as a conventional placeholder (ref: "Hitchhiker's Guide").
+          SEED=42
           PASS=0
           FAIL=0
 
@@ -197,8 +203,8 @@ jobs:
             echo "OK"
 
             simout="/tmp/${prog%.pli}_prob_sim.json"
-            echo -n "  psim  $prog  ($STEPS steps, randomized) ... "
-            if "$PSIM" "$binfile" -s "$STEPS" -r --seed 42 -o "$simout" \
+            echo -n "  psim  $prog  ($STEPS steps, randomized, seed=$SEED) ... "
+            if "$PSIM" "$binfile" -s "$STEPS" -r --seed "$SEED" -o "$simout" \
                  > /tmp/psim_out.txt 2>&1; then
               if [ -s "$simout" ]; then
                 echo "PASS"

@@ -268,7 +268,10 @@ void Simulator::produce(unsigned membraneId, const OMembrane& lhrMembrane, const
 			}
 		}
 		if (!found) {
-			throw std::runtime_error("Unable to produce");
+			std::ostringstream ss;
+			ss << "Unable to produce: child membrane with label '" << im.label 
+			   << "' not found in membrane " << membraneId;
+			throw std::runtime_error(ss.str());
 		}
 		configuration.membranes[m.children[i]].charge = im.charge;
 		add(configuration.membranes[m.children[i]].multiset,im.multiset,applications);
@@ -657,6 +660,15 @@ bool Simulator::ruleSupportedArrow1(const Rule& rule)
 inline
 bool Simulator::ruleSupported(const Rule& rule)
 {
+	// Rules with probability are now supported in randomized mode
+	// Validate probability value if present (defensive check)
+	if (rule.features.count("probability") > 0) {
+		double prob = rule.features.at("probability").as_double();
+		if (prob < 0.0 || prob > 1.0) {
+			return false;
+		}
+	}
+	
 	if (rule.arrow == 0) {
 		return ruleSupportedArrow0(rule);
 	} 
@@ -687,8 +699,14 @@ bool Simulator::parse(int argc, char *argv[])
 		return false;
 	}
 	
+	// Set random seed if provided via command line
 	if (hasSeed()) {
 		RANDOM.setSeed(getSeed());
+		if (getVerbosityLevel() > 0) {
+			std::cout << "Using random seed: " << getSeed() << std::endl;
+		}
+	} else if (getVerbosityLevel() > 0) {
+		std::cout << "Using random seed: " << RANDOM.getSeed() << std::endl;
 	}
 
 	loadFromFile(getInputFile(),file);
