@@ -19,3 +19,7 @@ sudo apt-get install build-essential flex bison libboost-filesystem-dev libboost
 * make simulator
 * sudo make install
 
+## Examples
+
+* Existing runnable models: `examples/`
+* TODO backlog catalog (by P-system type, application category, complexity): `examples/TODO_EXAMPLES_CATALOG.md`
