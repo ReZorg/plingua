@@ -1,0 +1,88 @@
+/*
+ * todo_pdp_predator_prey_with_capacity.pli
+ * Predator-prey model with logistic carrying capacity using PDP P systems.
+ * P-system type: Probabilistic / PDP (Population Dynamics P systems)
+ * Category: Ecology / mathematical biology
+ * Complexity: L1 (introductory)
+ *
+ * Extends the classic Lotka-Volterra predator-prey system with intraspecific
+ * competition (logistic growth) for the prey population.  The competition term
+ * implements a soft carrying capacity: two prey individuals compete and one is
+ * removed, mimicking resource limitation.
+ *
+ * Species:
+ *   A  =  prey (e.g. rabbits)
+ *   B  =  predator (e.g. foxes)
+ *
+ * Rules:
+ *   [A     --> A, A]'1  :: rA   prey reproduces (birth)
+ *   [A, A  --> A  ]'1  :: cA   prey intraspecific competition / crowding (logistic)
+ *   [A, B  --> B, B]'1 :: rB   predator consumes prey and reproduces
+ *   [A     -->    ]'1  :: dA   prey natural death
+ *   [B     -->    ]'1  :: dB   predator natural death
+ *
+ * The competition rule [A, A --> A]'1 removes one of two prey with probability
+ * cA at each step, implementing the -r/K * N^2 term of logistic growth.
+ *
+ * Initial state:
+ *   A*50  (50 prey individuals)
+ *   B*10  (10 predator individuals)
+ *
+ * Parameters (rates):
+ *   rA = 0.40  prey birth rate
+ *   cA = 0.20  intraspecific competition coefficient (logistic limitation)
+ *   rB = 0.30  predator birth rate (per prey consumed)
+ *   dA = 0.05  prey natural death rate
+ *   dB = 0.10  predator natural death rate
+ *
+ * Simulation notes:
+ *   Run psim with -r flag (randomized).  Expected dynamics:
+ *   - With cA > 0: prey population stabilizes near a carrying capacity K.
+ *   - Compare to todo_pdp_two_species_competition.pli (no carrying capacity).
+ *   - Predator oscillations are damped relative to the pure Lotka-Volterra case.
+ */
+@model<probabilistic>
+@include "pdp_model.pli"
+
+def main()
+{
+  /* Single membrane environment */
+  @mu = []'1;
+
+  /* Initial populations */
+  @ms(1) = A*50, B*10;
+
+  /* Prey reproduction (birth) */
+  [A --> A, A]'1 :: rA;
+
+  /* Intraspecific competition: two prey compete, one survives (logistic capacity) */
+  [A, A --> A]'1 :: cA;
+
+  /* Predation: predator consumes prey and reproduces */
+  [A, B --> B, B]'1 :: rB;
+
+  /* Prey natural death */
+  [A --> ]'1 :: dA;
+
+  /* Predator natural death */
+  [B --> ]'1 :: dB;
+}
+
+/* ------------------------------------------------------------------ */
+/* Model parameters                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Prey birth rate */
+rA = 0.40;
+
+/* Intraspecific competition (logistic crowding coefficient) */
+cA = 0.20;
+
+/* Predator birth rate (per prey consumed) */
+rB = 0.30;
+
+/* Prey natural death rate */
+dA = 0.05;
+
+/* Predator natural death rate */
+dB = 0.10;

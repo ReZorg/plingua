@@ -1,0 +1,76 @@
+/*
+ * todo_pdp_sir_contact_network.pli
+ * Standard SIR epidemiology model using Probabilistic / PDP P systems.
+ * P-system type: Probabilistic / PDP (Population Dynamics P systems)
+ * Category: Epidemiology / mathematical biology
+ * Complexity: L1 (introductory)
+ *
+ * The SIR (Susceptible-Infected-Recovered) compartmental model is the
+ * foundational framework for epidemic modeling.  In this P-system encoding,
+ * individuals are represented as objects S, I, R in a single membrane.
+ * The mass-action contact assumption is captured by the rule [S, I --> I, I],
+ * which fires with probability beta when a susceptible individual (S) and an
+ * infected individual (I) are simultaneously present in the membrane.
+ *
+ * Compartments:
+ *   S  =  Susceptible (can be infected)
+ *   I  =  Infected and infectious
+ *   R  =  Recovered and immune
+ *
+ * Rules:
+ *   [S, I --> I, I]'1  :: beta    infection (S meets I -> both become I)
+ *   [I   --> R    ]'1  :: gamma   recovery  (I recovers and becomes immune)
+ *
+ * Initial state (population of 1000):
+ *   S*990  (990 susceptibles)
+ *   I*10   (10 initial infected)
+ *   R*0    (no recovered initially)
+ *
+ * Parameters:
+ *   beta  = 0.30  per-contact transmission rate
+ *   gamma = 0.10  recovery rate (mean infectious period ~ 1/gamma steps)
+ *
+ * Expected epidemic dynamics:
+ *   - Basic reproduction number R0 = beta/gamma = 3.0 > 1: epidemic takes off.
+ *   - Infected population rises to a peak then falls as susceptibles are depleted.
+ *   - Final recovered fraction satisfies the implicit equation 1-r = exp(-R0*r).
+ *   - With R0=3, approximately 94% of the population becomes infected.
+ *   - Epidemic ends when susceptibles fall below the herd immunity threshold.
+ *
+ * Simulation notes:
+ *   Run psim with the -r flag (randomized) for stochastic simulation.
+ *   Increasing beta or decreasing gamma raises R0 and accelerates the epidemic.
+ *   Setting beta < gamma gives R0 < 1 and the epidemic dies out without spreading.
+ *
+ * Reference:
+ *   Kermack, W.O. and McKendrick, A.G. (1927).
+ *   "A contribution to the mathematical theory of epidemics."
+ *   Proc. Royal Society of London A, 115(772), 700-721.
+ */
+@model<probabilistic>
+@include "pdp_model.pli"
+
+def main()
+{
+  /* Single membrane representing the well-mixed population */
+  @mu = []'1;
+
+  /* Initial population: 990 susceptible, 10 infected, 0 recovered */
+  @ms(1) = S*990, I*10;
+
+  /* Infection: a susceptible contacts an infected individual -> both infected */
+  [S, I --> I, I]'1 :: beta;
+
+  /* Recovery: an infected individual recovers and gains immunity */
+  [I --> R]'1 :: gamma;
+}
+
+/* ------------------------------------------------------------------ */
+/* Model parameters                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Transmission rate (per S-I contact per step) */
+beta = 0.30;
+
+/* Recovery rate (1/mean infectious period) */
+gamma = 0.10;

@@ -1,0 +1,97 @@
+/*
+ * todo_tissue_graph_reachability.pli
+ * Tissue P system computing graph reachability via BFS wave propagation.
+ * P-system type: Tissue-like (tissue division model, communication rules only)
+ * Category: Graph algorithms
+ * Complexity: L1 (introductory)
+ *
+ * Computes which nodes are reachable from a source node in a directed graph
+ * using a BFS-style wave propagation through tissue communication rules.
+ *
+ * Graph:
+ *   4 nodes (1, 2, 3, 4)
+ *   Edges: 1->2, 2->3, 2->4
+ *   Source: node 1
+ *
+ * Membrane structure:
+ *   Each node is a cell.  Environment (label 0) contains relay objects.
+ *   @mu = [ []'1 []'2 []'3 []'4 ]'0;
+ *
+ * Initial state:
+ *   Cell 1: reach, wave      (node 1 is the source; wave initiates BFS)
+ *   Cell 2: l12              (unlock token: cell 2 listens for wave from cell 1)
+ *   Cell 3: l23              (unlock token: cell 3 listens for signal from cell 2)
+ *   Cell 4: l24              (unlock token: cell 4 listens for signal from cell 2)
+ *   Environment (0): reach*3 (reservoir of reach objects to be delivered)
+ *
+ * Communication rules (antiport):
+ *   Step 1  [wave]'1 <--> [l12]'2
+ *     Cell 1 sends wave, cell 2 sends l12; cell 1 gains l12, cell 2 gains wave.
+ *     Now cell 2 holds wave (= BFS reached cell 2).
+ *
+ *   Step 1b [wave]'2 <--> [reach]'0
+ *     Cell 2 exchanges wave for reach from environment.
+ *     Cell 2 now has reach (confirmed reachable). Environment gains wave (consumed).
+ *
+ *   Step 2  [wave]'2 <--> [l23]'3
+ *     Cell 2 sends wave to cell 3 (cell 3 unlocks).
+ *     Cell 3 gains wave, cell 2 gains l23 (unlock token).
+ *
+ *   Step 2b [wave]'3 <--> [reach]'0
+ *     Cell 3 exchanges wave for reach from environment; cell 3 becomes reachable.
+ *
+ *   Step 2c [wave2]'2 <--> [l24]'4
+ *     Cell 2 sends a second wave to cell 4 (cell 4 unlocks).
+ *
+ *   Step 2d [wave]'4 <--> [reach]'0
+ *     Cell 4 becomes reachable.
+ *
+ * Note: cell 2 needs two wave objects to propagate to both cells 3 and 4.
+ * We provide wave2 in cell 2's initial set. wave2 serves as the second wave
+ * for the branch to cell 4.
+ *
+ * Expected result after all rules fire:
+ *   Cell 1: reach (always had it)
+ *   Cell 2: reach (received via BFS from cell 1)
+ *   Cell 3: reach (received via BFS from cell 2)
+ *   Cell 4: reach (received via BFS from cell 2)
+ */
+@model<tissue_division>
+@include "tissue_division_model.pli"
+
+def main()
+{
+  @mu = [ []'1 []'2 []'3 []'4 ]'0;
+
+  /* Source node: reach marks node 1 as reachable; wave propagates BFS */
+  @ms(1) = reach, wave;
+
+  /* Unlock tokens in neighbor cells (needed for antiport) */
+  /* Cell 2 needs two wave2 objects: one to propagate to cell 3, one to cell 4 */
+  @ms(2) = l12, wave2, wave2;
+  @ms(3) = l23;
+  @ms(4) = l24;
+
+  /* Environment reservoir of reach objects (one per node to be reached) */
+  @ms(0) = reach, reach, reach;
+
+  /* ---- BFS propagation rules ---- */
+
+  /* Edge 1->2: wave leaves cell 1, cell 2 unlocks and receives wave */
+  [wave]'1 <--> [l12]'2;
+
+  /* Cell 2 converts wave to reach (using reservoir) */
+  [wave]'2 <--> [reach]'0;
+
+  /* Edge 2->3: wave2 from cell 2 propagates to cell 3 */
+  [wave2]'2 <--> [l23]'3;
+
+  /* Cell 3 converts wave2 to reach (using reservoir) */
+  [wave2]'3 <--> [reach]'0;
+
+  /* Edge 2->4: second wave2 from cell 2 (not cell 3) propagates to cell 4 */
+  [wave2]'2 <--> [l24]'4;
+
+  /* Cell 4 converts wave2 to reach (using reservoir) */
+  [wave2]'4 <--> [reach]'0;
+}
