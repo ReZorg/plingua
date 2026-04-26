@@ -1,0 +1,115 @@
+/*
+ * todo_sat_active_membranes_minimal.pli
+ * Minimal SAT recognizer using cell-like P systems with active membranes.
+ * P-system type: Cell-like (active membranes / membrane division)
+ * Category: SAT / NP-complete
+ * Complexity: L1 (introductory)
+ *
+ * Implements the family of recognizer P systems for SAT from:
+ *   Perez-Jimenez, Romero-Jimenez, Sancho-Caparrini,
+ *   "Complexity classes in models of cellular computing with membranes",
+ *   Natural Computing 2(3), 265-285 (2003).
+ *
+ * This instance uses 2 propositional variables (n=2) and 2 clauses (m=2):
+ *
+ *   Formula : (x1 v -x2) ^ (-x1 v x2)   [i.e. x1 <-> x2]
+ *
+ *   Satisfying assignments : {x1=T, x2=T}  and  {x1=F, x2=F}
+ *
+ * Input encoding (in membrane 2):
+ *   x{i,j}  = variable j appears POSITIVE in clause i
+ *   nx{i,j} = variable j appears NEGATIVE in clause i
+ *
+ *   Clause 1 (i=1): x1 positive  -> x{1,1}
+ *                   x2 negative  -> nx{1,2}
+ *   Clause 2 (i=2): x1 negative  -> nx{2,1}
+ *                   x2 positive  -> x{2,2}
+ *
+ * Expected result: object 'Yes' appears in the skin membrane (membrane 1),
+ * indicating the formula is satisfiable.
+ *
+ * To test an unsatisfiable instance replace the input multiset with one
+ * whose clauses have no common satisfying assignment, e.g.:
+ *   (x1) ^ (-x1)  ->  @ms(2) += x{1,1}, nx{2,1};  call Sat(2,1);
+ */
+@model<membrane_division>
+@include "membrane_division_model.pli"
+
+/* ------------------------------------------------------------------ */
+/* Sat(m, n) module: m clauses, n propositional variables              */
+/*                                                                     */
+/* Adapted from sat_cell_division0.pli (Ignacio Perez-Hurtado, 2008). */
+/* ------------------------------------------------------------------ */
+def Sat(m,n)
+{
+  /* Initial configuration */
+  @mu = [[]'2]'1;
+
+  /* Initial multisets */
+  @ms(2) = d{1};
+
+  /* Membrane division: generate 2^n membranes (one per truth assignment) */
+  [d{k}]'2 --> +[d{k}]-[d{k}] : 1 <= k <= n;
+
+  /* Assign truth values to variables (positive literals) */
+  {
+    +[x{i,1} --> r{i,1}]'2;
+    -[nx{i,1} --> r{i,1}]'2;
+    -[x{i,1} --> #]'2;
+    +[nx{i,1} --> #]'2;
+  } : 1 <= i <= m;
+
+  /* Propagate literals across variables */
+  {
+    +[x{i,j} --> x{i,j-1}]'2;
+    -[x{i,j} --> x{i,j-1}]'2;
+    +[nx{i,j} --> nx{i,j-1}]'2;
+    -[nx{i,j} --> nx{i,j-1}]'2;
+  } : 1<=i<=m, 2<=j<=n;
+
+  /* Release division labels */
+  {
+    +[d{k}]'2 --> []d{k};
+    -[d{k}]'2 --> []d{k};
+  } : 1<=k<=n;
+
+  d{k}[]'2 --> [d{k+1}] : 1<=k<=n-1;
+
+  /* Collect satisfied clause witnesses */
+  [r{i,k} --> r{i,k+1}]'2 : 1<=i<=m, 1<=k<=2*n-1;
+
+  /* Step through the skin clock */
+  [d{k} --> d{k+1}]'1 : n <= k <= 3*n-3;
+  [d{3*n-2} --> d{3*n-1},e]'1;
+  e[]'2 --> +[c{1}];
+  [d{3*n-1} --> d{3*n}]'1;
+  [d{k} --> d{k+1}]'1 : 3*n <= k <= 3*n+2*m+2;
+
+  /* Check if all clauses are satisfied */
+  +[r{1,2*n}]'2 --> -[]r{1,2*n};
+  r{1,2*n}-[]'2 --> +[r{0,2*n}];
+  -[r{i,2*n} --> r{i-1,2*n}]'2 : 1<= i <= m;
+  -[c{k} --> c{k+1}]'2 : 1<=k<=m;
+  +[c{m+1}]'2 --> +[]c{m+1};
+  [c{m+1} --> c{m+2},t]'1;
+  [t]'1 --> +[]t;
+  +[c{m+2}]'1 --> -[]Yes;
+
+  /* Output No if unsatisfiable */
+  [d{3*n+2*m+3}]'1 --> +[]No;
+
+} /* End of Sat module */
+
+/* ------------------------------------------------------------------ */
+/* Main: instantiate Sat for 2 clauses and 2 variables                 */
+/* ------------------------------------------------------------------ */
+def main()
+{
+  /* Call Sat with m=2 clauses, n=2 variables */
+  call Sat(2,2);
+
+  /* Input multiset for formula: (x1 v -x2) ^ (-x1 v x2)              */
+  @ms(2) += x{1,1}, nx{1,2},    /* Clause 1: x1 v -x2 */
+            nx{2,1}, x{2,2};    /* Clause 2: -x1 v x2 */
+
+} /* End of main module */
