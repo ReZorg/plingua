@@ -1,0 +1,50 @@
+/* 
+ * todo_transition_language_acceptor.pli
+ * Transition P system: language acceptor for {a^n : n mod 3 = 0, n > 0}
+ * P-system type: Cell-like (transition)
+ * Category: Formal languages / automata
+ * Complexity: L1 (introductory)
+ *
+ * A single-membrane transition P system that decides whether the number of
+ * input objects 'a' is a positive multiple of three.
+ *
+ * Method: a unique token (tok) steps through three phases (ph1, ph2, ph3),
+ * consuming one 'a' per computation step.  Because the token is a singleton
+ * the sequential-style semantics emerges inside the maximally-parallel P
+ * system: at most one phase-transition rule fires per step.  When all 'a'
+ * objects have been consumed the remaining phase object determines acceptance:
+ *   ph1 (n mod 3 = 0, n > 0) -> yes
+ *   ph2 (n mod 3 = 1)        -> no
+ *   ph3 (n mod 3 = 2)        -> no
+ *
+ * Example input (change @ms(1) to test other lengths):
+ *   a*6  -> yes  (6 = 3*2)
+ *   a*5  -> no   (5 mod 3 = 2)
+ *   a*7  -> no   (7 mod 3 = 1)
+ *
+ * Rules labeled (1) have higher priority than (2): when a (1)-rule is
+ * applicable the (2)-rules are suppressed, preventing premature acceptance.
+ */
+@model<transition>
+@include "transition_model.pli"
+
+def main()
+{
+  @mu = []'1;
+
+  /* ------------------------------------------------------------------ */
+  /* Input: 6 copies of 'a' (divisible by 3 -> expected output: yes)    */
+  /* Change a*6 to test other lengths, e.g. a*5 -> no, a*9 -> yes       */
+  /* ------------------------------------------------------------------ */
+  @ms(1) = a*6, ph1, tok;
+
+  /* Phase transitions: consume one 'a' and advance the phase (priority 1) */
+  (1) [tok, a, ph1 --> ph2, tok]'1;
+  (1) [tok, a, ph2 --> ph3, tok]'1;
+  (1) [tok, a, ph3 --> ph1, tok]'1;
+
+  /* Termination: fire only when no 'a' remains (priority 2)             */
+  (2) [tok, ph1 --> yes]'1;
+  (2) [tok, ph2 --> no]'1;
+  (2) [tok, ph3 --> no]'1;
+}

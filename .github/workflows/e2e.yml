@@ -61,6 +61,11 @@ jobs:
             zebra_mussel.pli
             bearded_vulture_2_0.pli
             bv_model_bwmc12.pli
+            todo_transition_language_acceptor.pli
+            todo_snp_3k_plus_2.pli
+            todo_sat_active_membranes_minimal.pli
+            todo_tissue_sat_minimal.pli
+            todo_pdp_two_species_competition.pli
           )
 
           FORMATS=(json xml pli bin bin2)
@@ -116,6 +121,10 @@ jobs:
             sat_tissue_cell_division0.pli
             sat_tissue_cell_division1.pli
             sat_tissue_cell_separation.pli
+            todo_transition_language_acceptor.pli
+            todo_snp_3k_plus_2.pli
+            todo_sat_active_membranes_minimal.pli
+            todo_tissue_sat_minimal.pli
           )
 
           STEPS=5
@@ -180,6 +189,7 @@ jobs:
             zebra_mussel.pli
             bearded_vulture_2_0.pli
             bv_model_bwmc12.pli
+            todo_pdp_two_species_competition.pli
           )
 
           STEPS=3
@@ -290,6 +300,7 @@ jobs:
             zebra_mussel.pli
             bearded_vulture_2_0.pli
             bv_model_bwmc12.pli
+            todo_pdp_two_species_competition.pli
           )
           ROUNDTRIP_FORMATS=(json xml bin2)
           STEPS=2

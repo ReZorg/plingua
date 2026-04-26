@@ -1,0 +1,66 @@
+/*
+ * todo_snp_3k_plus_2.pli
+ * Spiking Neural P system (SNP) generating {3k+2 : k >= 0} = {2,5,8,11,...}
+ * P-system type: Spiking neural P systems
+ * Category: Arithmetic / language generation
+ * Complexity: L1 (introductory)
+ *
+ * Canonical SNP design (3 neurons):
+ *
+ *   sigma1  initial spikes = 2
+ *           rule a^2 / a^2  ->  a   (fire: consume 2 spikes, send 1 to sigma2)
+ *           rule a^1 / a^1  ->  lambda (forget: discard the spike)
+ *
+ *   sigma2  initial spikes = 0, receives from sigma1
+ *           rule a / a  ->  a  (relay spike to sigma3)
+ *
+ *   sigma3  output neuron, receives from sigma2
+ *           rule a / a  ->  spike_out  (fire: emit output spike)
+ *
+ *   Connections: sigma1 --> sigma2 --> sigma3 --> sigma1 (cycle)
+ *
+ * Encoding in this P-Lingua implementation (transition model + SNP model):
+ *
+ *   Because the compiler does not have built-in SNP semantics, the system
+ *   is represented with a single outer membrane and phase-state objects that
+ *   drive the three-step computation cycle.  The mapping is:
+ *
+ *     snp_prep2          startup state (sigma1 has 2 spikes queued)
+ *     snp_prep1          startup state (1 step remaining before first fire)
+ *     snp_fire           sigma1 is ready to fire
+ *     snp_out            output spike (accumulates; count gives step number)
+ *     snp_wait2          post-fire recovery step 1 (sigma2 in transit)
+ *     snp_wait1          post-fire recovery step 2 (sigma3 in transit)
+ *
+ *   Step  0:  snp_prep2 -> snp_prep1
+ *   Step  1:  snp_prep1 -> snp_fire
+ *   Step  2:  snp_fire  -> snp_out  + snp_wait2   (*** first output spike ***)
+ *   Step  3:  snp_wait2 -> snp_wait1
+ *   Step  4:  snp_wait1 -> snp_fire
+ *   Step  5:  snp_fire  -> snp_out  + snp_wait2   (*** second output spike ***)
+ *   ...
+ *   Output spikes accumulate at steps 2, 5, 8, 11, ... = {3k+2 : k >= 0}.
+ *
+ * To simulate: run psim for at least 10 steps and observe snp_out count.
+ */
+@model<snp>
+@include "snp_model.pli"
+
+def main()
+{
+  @mu = []'1;
+
+  /* Initial configuration: sigma1 has 2 spikes (encoded as prep2) */
+  @ms(1) = snp_prep2;
+
+  /* Startup: count down 2 preparation steps before the first firing */
+  [snp_prep2 --> snp_prep1]'1;
+  [snp_prep1 --> snp_fire]'1;
+
+  /* Fire: emit one output spike and enter 2-step recovery */
+  [snp_fire --> snp_out, snp_wait2]'1;
+
+  /* Recovery cycle: 2 steps before the next firing */
+  [snp_wait2 --> snp_wait1]'1;
+  [snp_wait1 --> snp_fire]'1;
+}
