@@ -3,7 +3,7 @@
  * Predator-prey model with logistic carrying capacity using PDP P systems.
  * P-system type: Probabilistic / PDP (Population Dynamics P systems)
  * Category: Ecology / mathematical biology
- * Complexity: L1 (introductory)
+ * Complexity: L2 (intermediate)
  *
  * Extends the classic Lotka-Volterra predator-prey system with intraspecific
  * competition (logistic growth) for the prey population.  The competition term

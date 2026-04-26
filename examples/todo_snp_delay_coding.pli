@@ -3,7 +3,7 @@
  * SNP system demonstrating delay/timing coding with alternating ISIs.
  * P-system type: Spiking neural P systems
  * Category: Spike-train coding / temporal coding
- * Complexity: L1 (introductory)
+ * Complexity: L2 (intermediate)
  *
  * This system encodes information in the timing of output spikes rather
  * than their count.  It generates a spike train with alternating

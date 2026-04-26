@@ -3,7 +3,7 @@
  * Tissue P system computing graph reachability via BFS wave propagation.
  * P-system type: Tissue-like (tissue division model, communication rules only)
  * Category: Graph algorithms
- * Complexity: L1 (introductory)
+ * Complexity: L2 (intermediate)
  *
  * Computes which nodes are reachable from a source node in a directed graph
  * using a BFS-style wave propagation through tissue communication rules.

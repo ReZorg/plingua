@@ -3,7 +3,7 @@
  * Tissue P system demonstrating multi-channel transport between 3 cells.
  * P-system type: Tissue-like (tissue division model, communication rules only)
  * Category: Communication / transport
- * Complexity: L1 (introductory)
+ * Complexity: L3 (advanced/research-grade)
  *
  * Models two communication channels (fast and slow) between 3 cells:
  *   Cell 1 (A): sender

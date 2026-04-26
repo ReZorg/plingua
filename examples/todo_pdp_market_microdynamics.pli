@@ -3,7 +3,7 @@
  * Market micro-dynamics model using Probabilistic / PDP P systems.
  * P-system type: Probabilistic / PDP (Population Dynamics P systems)
  * Category: Economics / agent-based modeling
- * Complexity: L1 (introductory)
+ * Complexity: L3 (advanced/research-grade)
  *
  * Models a simple market with three types of agents:
  *   B  =  buyers   (demand side)

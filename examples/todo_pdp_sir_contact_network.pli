@@ -3,7 +3,7 @@
  * Standard SIR epidemiology model using Probabilistic / PDP P systems.
  * P-system type: Probabilistic / PDP (Population Dynamics P systems)
  * Category: Epidemiology / mathematical biology
- * Complexity: L1 (introductory)
+ * Complexity: L2 (intermediate)
  *
  * The SIR (Susceptible-Infected-Recovered) compartmental model is the
  * foundational framework for epidemic modeling.  In this P-system encoding,
