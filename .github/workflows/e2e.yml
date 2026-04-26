@@ -66,6 +66,16 @@ jobs:
             todo_sat_active_membranes_minimal.pli
             todo_tissue_sat_minimal.pli
             todo_pdp_two_species_competition.pli
+            todo_sat_active_membranes_parametric.pli
+            todo_active_membranes_roundtrip_stress.pli
+            todo_pdp_predator_prey_with_capacity.pli
+            todo_pdp_sir_contact_network.pli
+            todo_pdp_market_microdynamics.pli
+            todo_snp_delay_coding.pli
+            todo_snp_large_dense_topology.pli
+            todo_tissue_sat_parametric.pli
+            todo_tissue_graph_reachability.pli
+            todo_tissue_multichannel_transport.pli
           )
 
           FORMATS=(json xml pli bin bin2)
@@ -125,6 +135,13 @@ jobs:
             todo_snp_3k_plus_2.pli
             todo_sat_active_membranes_minimal.pli
             todo_tissue_sat_minimal.pli
+            todo_sat_active_membranes_parametric.pli
+            todo_active_membranes_roundtrip_stress.pli
+            todo_snp_delay_coding.pli
+            todo_snp_large_dense_topology.pli
+            todo_tissue_sat_parametric.pli
+            todo_tissue_graph_reachability.pli
+            todo_tissue_multichannel_transport.pli
           )
 
           STEPS=5
@@ -190,6 +207,9 @@ jobs:
             bearded_vulture_2_0.pli
             bv_model_bwmc12.pli
             todo_pdp_two_species_competition.pli
+            todo_pdp_predator_prey_with_capacity.pli
+            todo_pdp_sir_contact_network.pli
+            todo_pdp_market_microdynamics.pli
           )
 
           STEPS=3
@@ -246,7 +266,7 @@ jobs:
           PSIM="$GITHUB_WORKSPACE/bin/psim"
           EXAMPLES="$GITHUB_WORKSPACE/examples"
 
-          PROGRAMS=(transition.pli graph.pli sat_cell_division0.pli)
+          PROGRAMS=(transition.pli graph.pli sat_cell_division0.pli todo_active_membranes_roundtrip_stress.pli)
           ROUNDTRIP_FORMATS=(json xml bin2)
           STEPS=3
 
@@ -301,6 +321,9 @@ jobs:
             bearded_vulture_2_0.pli
             bv_model_bwmc12.pli
             todo_pdp_two_species_competition.pli
+            todo_pdp_predator_prey_with_capacity.pli
+            todo_pdp_sir_contact_network.pli
+            todo_pdp_market_microdynamics.pli
           )
           ROUNDTRIP_FORMATS=(json xml bin2)
           STEPS=2

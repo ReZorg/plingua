@@ -55,3 +55,26 @@ Complexity levels: **L1 = introductory**, **L2 = intermediate**, **L3 = advanced
 3. ✅ `todo_tissue_sat_minimal.pli` (Tissue-like, SAT, L1) — uses `tissue_division_model.pli`
 4. ✅ `todo_sat_active_membranes_minimal.pli` (Cell-like active membranes, SAT, L1) — uses `membrane_division_model.pli`
 5. ✅ `todo_transition_language_acceptor.pli` (Transition, formal-language baseline, L1) — uses `transition_model.pli`
+
+## 4) Completed L2 / L3 examples
+
+| P-system type | Example file | Status |
+|---|---|---|
+| Cell-like (active membranes) | `todo_sat_active_membranes_parametric.pli` | ✅ L2 |
+| Cell-like (active membranes) | `todo_active_membranes_roundtrip_stress.pli` | ✅ L2 |
+| Probabilistic / PDP | `todo_pdp_predator_prey_with_capacity.pli` | ✅ L2 |
+| Probabilistic / PDP | `todo_pdp_sir_contact_network.pli` | ✅ L2 |
+| Spiking neural P systems | `todo_snp_delay_coding.pli` | ✅ L2 |
+| Tissue-like | `todo_tissue_sat_parametric.pli` | ✅ L2 |
+| Tissue-like | `todo_tissue_graph_reachability.pli` | ✅ L2 |
+| Kernel P systems | `todo_kp_queries_safety_liveness.md` | ✅ L2 (doc) |
+| Probabilistic / PDP | `todo_pdp_market_microdynamics.pli` | ✅ L3 |
+| Spiking neural P systems | `todo_snp_large_dense_topology.pli` | ✅ L3 |
+| Tissue-like | `todo_tissue_multichannel_transport.pli` | ✅ L3 |
+
+## 5) Remaining backlog (not yet implemented)
+
+| P-system type | Example file | Reason pending |
+|---|---|---|
+| Kernel P systems | `todo_kp_flame_agent_coordination.pli` | No kP model in P-Lingua yet |
+| Numerical / enzymatic | `todo_enps_navigation_controller.pli` | No ENPS model in P-Lingua yet |
