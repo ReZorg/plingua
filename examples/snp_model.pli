@@ -1,0 +1,40 @@
+/*
+ * snp_model.pli
+ * Spiking Neural P system (SNP) model definition.
+ *
+ * SNP rule patterns encoded as transition-evolution and routing rules:
+ *
+ *   snp_neuron_rule  -- fire/forget rules inside a neuron membrane:
+ *       [u -> v]'h       evolve multiset u to v within neuron h
+ *       [u ->  ]'h       forget rule: consume u, produce nothing
+ *
+ *   snp_routing_rule -- synaptic routing in the skin (parent) membrane:
+ *       u [ ]'h -> [v]'h inject objects v into neuron h when u
+ *                         is present in the parent membrane
+ *
+ * Neurons are inner membranes; spikes are represented by the object 'a'.
+ * Synaptic transmission is modelled by a two-step process:
+ *   (1) a fire/forget rule inside the source neuron emits an intermediate
+ *       routing object into that neuron's multiset, then dissolution (@d)
+ *       releases it to the parent membrane;
+ *   (2) a routing rule in the parent membrane injects the spike into the
+ *       target neuron.
+ *
+ * This model is intentionally kept minimal so that the same rule patterns
+ * also cover flat (single-membrane) SNP encodings where sequential
+ * computation is driven by phase-state objects rather than membrane topology.
+ */
+
+!snp_neuron_rule
+{
+    [u -> v]'h;
+    [u ->  ]'h;
+    [u -> v, @d]'h;
+}
+
+!snp_routing_rule
+{
+    u [ ]'h -> [v]'h;
+}
+
+@model(snp) = snp_neuron_rule, snp_routing_rule;

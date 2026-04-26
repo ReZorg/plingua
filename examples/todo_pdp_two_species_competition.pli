@@ -1,0 +1,81 @@
+/*
+ * todo_pdp_two_species_competition.pli
+ * Two-species stochastic competition model using Probabilistic / PDP P systems.
+ * P-system type: Probabilistic / PDP (Population Dynamics P systems)
+ * Category: Ecology
+ * Complexity: L1 (introductory)
+ *
+ * Two populations (A = prey, B = predator) coexist in a single stochastic
+ * membrane environment together with a shared resource pool (R).
+ *
+ * Biological model:
+ *   - Prey (A) consumes resources (R) to reproduce.
+ *   - Predator (B) consumes prey (A) to reproduce.
+ *   - Both species die at a background rate.
+ *   - Resources regenerate spontaneously.
+ *
+ * Rules (all follow the PDP skeleton_rule pattern):
+ *   [A, R --> A, A]'1  :: rA   prey reproduces using resources
+ *   [B, A --> B, B]'1  :: rB   predator reproduces by consuming prey
+ *   [A   --> #   ]'1   :: dA   prey natural death
+ *   [B   --> #   ]'1   :: dB   predator natural death
+ *   [R   --> R, R]'1   :: rR   resource regeneration
+ *
+ * Initial state (single environment membrane, label 1):
+ *   A*20  (20 prey individuals)
+ *   B*5   (5 predator individuals)
+ *   R*100 (100 resource units)
+ *
+ * Simulation notes:
+ *   Run psim with the -r (randomized) flag.  Typical outcomes include:
+ *   - Coexistence oscillations (Lotka-Volterra dynamics)
+ *   - Predator extinction if rB is too small
+ *   - Prey collapse if rB is too large
+ *
+ *   Seed 42 is used in CI tests for reproducibility.
+ */
+@model<probabilistic>
+@include "pdp_model.pli"
+
+def main()
+{
+  /* Single membrane environment */
+  @mu = []'1;
+
+  /* Initial populations */
+  @ms(1) = A*20, B*5, R*100;
+
+  /* Prey (A) reproduces by consuming one resource unit */
+  [A, R --> A, A]'1 :: rA;
+
+  /* Predator (B) reproduces by consuming one prey individual */
+  [B, A --> B, B]'1 :: rB;
+
+  /* Natural death: prey */
+  [A --> ]'1 :: dA;
+
+  /* Natural death: predator */
+  [B --> ]'1 :: dB;
+
+  /* Resource regeneration */
+  [R --> R, R]'1 :: rR;
+}
+
+/* ------------------------------------------------------------------ */
+/* Model parameters                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Prey reproduction rate (per capita, per resource unit) */
+rA = 0.30;
+
+/* Predator reproduction rate (per capita, per prey consumed) */
+rB = 0.40;
+
+/* Prey natural death rate */
+dA = 0.05;
+
+/* Predator natural death rate */
+dB = 0.10;
+
+/* Resource regeneration rate */
+rR = 0.25;

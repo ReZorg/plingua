@@ -50,8 +50,8 @@ Complexity levels: **L1 = introductory**, **L2 = intermediate**, **L3 = advanced
 
 ## 3) Prioritized near-term TODO set for this repository
 
-1. `todo_pdp_two_species_competition.pli` (Probabilistic/PDP, Ecology, L1)
-2. `todo_snp_3k_plus_2.pli` (Spiking neural, Arithmetic, L1)
-3. `todo_tissue_sat_minimal.pli` (Tissue-like, SAT, L1)
-4. `todo_sat_active_membranes_minimal.pli` (Cell-like active membranes, SAT, L1)
-5. `todo_transition_language_acceptor.pli` (Transition, formal-language baseline, L1)
+1. ✅ `todo_pdp_two_species_competition.pli` (Probabilistic/PDP, Ecology, L1)
+2. ✅ `todo_snp_3k_plus_2.pli` (Spiking neural, Arithmetic, L1) — uses `snp_model.pli`
+3. ✅ `todo_tissue_sat_minimal.pli` (Tissue-like, SAT, L1)
+4. ✅ `todo_sat_active_membranes_minimal.pli` (Cell-like active membranes, SAT, L1)
+5. ✅ `todo_transition_language_acceptor.pli` (Transition, formal-language baseline, L1)
