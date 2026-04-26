@@ -27,14 +27,14 @@
 
 !snp_neuron_rule
 {
-    [u -> v]'h;
-    [u ->  ]'h;
-    [u -> v, @d]'h;
+    [u -> v]'h;          /* fire rule: consume u, produce v inside neuron h */
+    [u ->  ]'h;          /* forget rule: consume u, produce nothing (spike discarded) */
+    [u -> v, @d]'h;      /* fire-and-dissolve: produce v and dissolve neuron h */
 }
 
 !snp_routing_rule
 {
-    u [ ]'h -> [v]'h;
+    u [ ]'h -> [v]'h;    /* synaptic routing: when u is in parent, inject v into neuron h */
 }
 
 @model(snp) = snp_neuron_rule, snp_routing_rule;
