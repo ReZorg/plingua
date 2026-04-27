@@ -1,0 +1,64 @@
+/*
+ * todo_snp_delay_coding.pli
+ * SNP system demonstrating delay/timing coding with alternating ISIs.
+ * P-system type: Spiking neural P systems
+ * Category: Spike-train coding / temporal coding
+ * Complexity: L2 (intermediate)
+ *
+ * This system encodes information in the timing of output spikes rather
+ * than their count.  It generates a spike train with alternating
+ * inter-spike intervals (ISIs) of 3 and 2 steps.
+ *
+ * Encoding: flat single-membrane with phase-state objects (same style as
+ * todo_snp_3k_plus_2.pli).  Two modes alternate:
+ *
+ *   SLOW mode (3-step cycle): slow_wait2 -> slow_wait1 -> slow_fire
+ *       slow_fire produces an output spike and switches to FAST mode.
+ *
+ *   FAST mode (2-step cycle): fast_wait1 -> fast_fire
+ *       fast_fire produces an output spike and switches back to SLOW mode.
+ *
+ * Computation trace (starting from slow_wait2 at step 0):
+ *   Step 0: slow_wait2 -> slow_wait1
+ *   Step 1: slow_wait1 -> slow_fire
+ *   Step 2: slow_fire  -> snp_out + fast_wait1   (*** spike 1 at step 2 ***)
+ *   Step 3: fast_wait1 -> fast_fire
+ *   Step 4: fast_fire  -> snp_out + slow_wait2   (*** spike 2 at step 4 ***)
+ *   Step 5: slow_wait2 -> slow_wait1
+ *   Step 6: slow_wait1 -> slow_fire
+ *   Step 7: slow_fire  -> snp_out + fast_wait1   (*** spike 3 at step 7 ***)
+ *   Step 8: fast_wait1 -> fast_fire
+ *   Step 9: fast_fire  -> snp_out + slow_wait2   (*** spike 4 at step 9 ***)
+ *   ...
+ *
+ * Spike times: 2, 4, 7, 9, 12, 14, ...
+ * ISI sequence: 2, 3, 2, 3, 2, 3, ...  (alternating)
+ *
+ * The snp_out objects accumulate in the membrane.  Their count after k steps
+ * gives the number of output spikes emitted.
+ *
+ * To simulate: run psim for at least 15 steps and observe snp_out count.
+ */
+@model<snp>
+@include "snp_model.pli"
+
+def main()
+{
+  @mu = []'1;
+
+  /* Initial configuration: start in slow mode, waiting 2 steps before first spike */
+  @ms(1) = slow_wait2;
+
+  /* Slow mode: 2 wait steps before firing */
+  [slow_wait2 --> slow_wait1]'1;
+  [slow_wait1 --> slow_fire]'1;
+
+  /* Slow fire: emit output spike and switch to fast mode */
+  [slow_fire --> snp_out, fast_wait1]'1;
+
+  /* Fast mode: 1 wait step before firing */
+  [fast_wait1 --> fast_fire]'1;
+
+  /* Fast fire: emit output spike and switch back to slow mode */
+  [fast_fire --> snp_out, slow_wait2]'1;
+}

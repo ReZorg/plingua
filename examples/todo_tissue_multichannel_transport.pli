@@ -1,0 +1,89 @@
+/*
+ * todo_tissue_multichannel_transport.pli
+ * Tissue P system demonstrating multi-channel transport between 3 cells.
+ * P-system type: Tissue-like (tissue division model, communication rules only)
+ * Category: Communication / transport
+ * Complexity: L3 (advanced/research-grade)
+ *
+ * Models two communication channels (fast and slow) between 3 cells:
+ *   Cell 1 (A): sender
+ *   Cell 2 (B): intermediate relay
+ *   Cell 3 (C): receiver
+ *
+ * Two message channels:
+ *   FAST channel (f-prefix): direct 1->2->3 transport in 2 hops.
+ *   SLOW channel (s-prefix): relay via cell 2 in 2 hops (same hop count,
+ *                             but semantically distinct channel).
+ *
+ * Initial state:
+ *   Cell 1: fmsg, smsg      (sends one message on each channel)
+ *   Cell 2: fl12, sl12      (unlock tokens for cell 2 incoming)
+ *   Cell 3: fl23, sl23      (unlock tokens for cell 3 incoming)
+ *   Environment: fack, sack, fdone, sdone (reservoir objects for acknowledgments)
+ *
+ * Communication rules (antiport: [u]'h1 <--> [v]'h2 exchanges u and v):
+ *
+ *   Fast channel A->B:   [fmsg]'1 <--> [fl12]'2
+ *     Cell 1 sends fmsg, cell 2 sends fl12; cell 2 receives fmsg (fast message).
+ *
+ *   Fast channel B->C:   [fmsg]'2 <--> [fl23]'3
+ *     Cell 2 relays fmsg, cell 3 receives it.
+ *
+ *   Slow channel A->B:   [smsg]'1 <--> [sl12]'2
+ *     Cell 1 sends smsg, cell 2 receives it as srelay.
+ *
+ *   Slow channel B->C:   [smsg]'2 <--> [sl23]'3
+ *     Cell 2 relays smsg to cell 3.
+ *
+ *   Fast acknowledgment C->B: [fmsg]'3 <--> [fack]'0
+ *     Cell 3 exchanges fmsg for fack from environment (channel completion signal).
+ *
+ *   Slow acknowledgment C->B: [smsg]'3 <--> [sack]'0
+ *     Cell 3 exchanges smsg for sack from environment.
+ *
+ * Expected result:
+ *   After rules fire: cell 3 holds fack and sack (both channels delivered).
+ *   Cell 1 holds fl12 and sl12 (the unlock tokens received as acknowledgment).
+ *   Cell 2 holds fl23 and sl23 (intermediate tokens).
+ */
+@model<tissue_division>
+@include "tissue_division_model.pli"
+
+def main()
+{
+  @mu = [ []'1 []'2 []'3 ]'0;
+
+  /* Cell 1 (sender): starts with one message per channel */
+  @ms(1) = fmsg, smsg;
+
+  /* Cell 2 (relay): unlock tokens for incoming messages */
+  @ms(2) = fl12, sl12;
+
+  /* Cell 3 (receiver): unlock tokens for incoming messages */
+  @ms(3) = fl23, sl23;
+
+  /* Environment: reservoir objects for delivery acknowledgments */
+  @ms(0) = fack, sack;
+
+  /* ---- Fast channel rules ---- */
+
+  /* Fast: cell 1 sends fmsg, cell 2 accepts (gives fl12 back) */
+  [fmsg]'1 <--> [fl12]'2;
+
+  /* Fast: cell 2 relays fmsg to cell 3 (cell 3 gives fl23 back) */
+  [fmsg]'2 <--> [fl23]'3;
+
+  /* Fast: cell 3 exchanges fmsg for fack from environment */
+  [fmsg]'3 <--> [fack]'0;
+
+  /* ---- Slow channel rules ---- */
+
+  /* Slow: cell 1 sends smsg, cell 2 accepts (gives sl12 back) */
+  [smsg]'1 <--> [sl12]'2;
+
+  /* Slow: cell 2 relays smsg to cell 3 (cell 3 gives sl23 back) */
+  [smsg]'2 <--> [sl23]'3;
+
+  /* Slow: cell 3 exchanges smsg for sack from environment */
+  [smsg]'3 <--> [sack]'0;
+}

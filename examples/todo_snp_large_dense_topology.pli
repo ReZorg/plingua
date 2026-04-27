@@ -1,0 +1,61 @@
+/*
+ * todo_snp_large_dense_topology.pli
+ * Larger SNP system with 8 neurons in a cascading firing chain.
+ * P-system type: Spiking neural P systems
+ * Category: Neural network simulation
+ * Complexity: L2 (intermediate)
+ *
+ * Models 8 neurons (n1..n8) encoded as phase-state objects in a single
+ * flat membrane.  Neurons fire in a cascade: when neuron k fires, it sends
+ * a stimulus to neuron k+1, which fires one step later.
+ *
+ * Each neuron k has two states:
+ *   fire{k}   = neuron k is ready to fire this step
+ *   stim{k}   = neuron k has received a stimulus (will fire next step)
+ *
+ * Firing rules:
+ *   fire{k} --> out{k}, stim{k+1}   for k = 1..7
+ *     Neuron k fires: emits output spike out{k} and stimulates neuron k+1.
+ *
+ *   fire{8} --> out{8}
+ *     Last neuron fires: emits output spike, no further propagation.
+ *
+ * Activation rules:
+ *   stim{k} --> fire{k}              for k = 2..8
+ *     Stimulus activates neuron k (ready to fire next step).
+ *
+ * Computation trace (starting from fire{1} at step 0):
+ *   Step 0: fire{1} -> out{1}, stim{2}
+ *   Step 1: stim{2} -> fire{2}
+ *   Step 2: fire{2} -> out{2}, stim{3}
+ *   Step 3: stim{3} -> fire{3}
+ *   ...
+ *   Step 14: fire{8} -> out{8}
+ *
+ * Output: objects out{1}, out{2}, ..., out{8} accumulate in the membrane.
+ * All 8 neurons have fired after 14 computation steps (2 steps per neuron).
+ *
+ * Initial state: neuron 1 is primed to fire.
+ *   @ms(1) = fire{1};
+ *
+ * To simulate: run psim for at least 15 steps and observe out{k} counts.
+ */
+@model<snp>
+@include "snp_model.pli"
+
+def main()
+{
+  @mu = []'1;
+
+  /* Initial configuration: neuron 1 is primed to fire */
+  @ms(1) = fire{1};
+
+  /* Firing rules for neurons 1..7: fire and stimulate successor */
+  [fire{k} --> out{k}, stim{k+1}]'1 : 1<=k<=7;
+
+  /* Firing rule for last neuron (no successor) */
+  [fire{8} --> out{8}]'1;
+
+  /* Activation rules: stimulus converts to ready-to-fire state */
+  [stim{k} --> fire{k}]'1 : 2<=k<=8;
+}

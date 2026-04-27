@@ -1,0 +1,103 @@
+/*
+ * todo_pdp_market_microdynamics.pli
+ * Market micro-dynamics model using Probabilistic / PDP P systems.
+ * P-system type: Probabilistic / PDP (Population Dynamics P systems)
+ * Category: Economics / agent-based modeling
+ * Complexity: L3 (advanced/research-grade)
+ *
+ * Models a simple market with three types of agents:
+ *   B  =  buyers   (demand side)
+ *   S  =  sellers  (supply side)
+ *   G  =  goods    (inventory / supply)
+ *
+ * Micro-economic interactions captured as stochastic rewriting rules:
+ *
+ *   [B, S, G --> B, S]'1  :: tr    Trade: a buyer purchases a good from a seller.
+ *                                   One good is consumed; buyer and seller persist.
+ *
+ *   [S --> S, G]'1         :: pr    Production: a seller creates a new good.
+ *                                   Models supply-side production activity.
+ *
+ *   [B --> B, B]'1         :: rb    Buyer entry: new buyer enters the market.
+ *                                   Models growing consumer demand.
+ *
+ *   [S --> S, S]'1         :: rs    Seller entry: new seller enters the market.
+ *                                   Models new firm formation.
+ *
+ *   [B --> ]'1             :: db    Buyer exit: buyer leaves the market.
+ *                                   Models saturation or budget exhaustion.
+ *
+ *   [S --> ]'1             :: ds    Seller exit: seller leaves the market.
+ *                                   Models firm bankruptcy or exit.
+ *
+ * Initial state:
+ *   B*20  (20 buyers)
+ *   S*10  (10 sellers)
+ *   G*30  (30 units of goods in inventory)
+ *
+ * Parameters (stochastic rates):
+ *   tr = 0.35   trade rate (demand-supply matching)
+ *   pr = 0.25   production rate (good creation)
+ *   rb = 0.15   buyer entry rate
+ *   rs = 0.10   seller entry rate
+ *   db = 0.05   buyer exit rate
+ *   ds = 0.05   seller exit rate
+ *
+ * Simulation notes:
+ *   Run psim with the -r flag (randomized).  Expected dynamics:
+ *   - Goods inventory fluctuates based on trade and production rates.
+ *   - High tr + low pr -> goods depletion, market shortage.
+ *   - High pr + low tr -> goods surplus, inventory buildup.
+ *   - Buyer/seller populations evolve toward a market equilibrium.
+ */
+@model<probabilistic>
+@include "pdp_model.pli"
+
+def main()
+{
+  /* Single membrane representing the market */
+  @mu = []'1;
+
+  /* Initial market state */
+  @ms(1) = B*20, S*10, G*30;
+
+  /* Trade: buyer purchases good from seller */
+  [B, S, G --> B, S]'1 :: tr;
+
+  /* Production: seller creates a new good */
+  [S --> S, G]'1 :: pr;
+
+  /* Buyer entry (demand growth) */
+  [B --> B, B]'1 :: rb;
+
+  /* Seller entry (supply side growth) */
+  [S --> S, S]'1 :: rs;
+
+  /* Buyer exit */
+  [B --> ]'1 :: db;
+
+  /* Seller exit */
+  [S --> ]'1 :: ds;
+}
+
+/* ------------------------------------------------------------------ */
+/* Model parameters                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Trade / transaction rate */
+tr = 0.35;
+
+/* Production rate (good creation per seller per step) */
+pr = 0.25;
+
+/* Buyer entry rate */
+rb = 0.15;
+
+/* Seller entry rate */
+rs = 0.10;
+
+/* Buyer exit rate */
+db = 0.05;
+
+/* Seller exit rate */
+ds = 0.05;
