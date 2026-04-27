@@ -6,10 +6,18 @@ IDIR = include
 OBJ_PLINGUA = y.tab.o lex.yy.o node_value.o scope.o syntax_tree.o system.o init.o parser.o pattern.o formats.o cplusplus.o 
 
 OBJ_PSIM = psim.o command_line.o
+
+OBJ_MLINGUA = mli_parser.o cytos_xml.o mlingua_main.o
+
+OBJ_MSIM = mli_parser.o cytos_xml.o msim.o msim_main.o
       
 BIN_PLINGUA = plingua
 
 BIN_PSIM = psim
+
+BIN_MLINGUA = mlingua
+
+BIN_MSIM = msim
 
 CFlags=-c -O3 -Wall -std=gnu++11 
 LDFlags=-lfl -lboost_system -lboost_filesystem -lboost_program_options
@@ -18,13 +26,17 @@ RM=rm
 FLEX=flex
 BISON=bison
 
-all: grammar compiler simulator
+all: grammar compiler simulator mcompiler msimulator
 
 grammar: y.tab.c lex.yy.c
 
 compiler: $(OBJ_PLINGUA) $(BIN_PLINGUA) 
 
 simulator: $(OBJ_PSIM) $(BIN_PSIM)
+
+mcompiler: $(OBJ_MLINGUA) $(BIN_MLINGUA)
+
+msimulator: $(OBJ_MSIM) $(BIN_MSIM)
 
 $(BIN_PLINGUA): $(patsubst %,$(ODIR)/%,$(OBJ_PLINGUA))
 	@mkdir -p $(BDIR)
@@ -33,6 +45,14 @@ $(BIN_PLINGUA): $(patsubst %,$(ODIR)/%,$(OBJ_PLINGUA))
 $(BIN_PSIM): $(patsubst %,$(ODIR)/%,$(OBJ_PSIM))
 	@mkdir -p $(BDIR)
 	$(CC) $^ $(LDFlags) -o $(BDIR)/$@ 	
+
+$(BIN_MLINGUA): $(patsubst %,$(ODIR)/%,$(OBJ_MLINGUA))
+	@mkdir -p $(BDIR)
+	$(CC) $^ -o $(BDIR)/$@
+
+$(BIN_MSIM): $(patsubst %,$(ODIR)/%,$(OBJ_MSIM))
+	@mkdir -p $(BDIR)
+	$(CC) $^ -o $(BDIR)/$@
 
 %.o: $(SDIR)/%.cpp	
 	@mkdir -p $(ODIR)
@@ -59,6 +79,10 @@ $(BIN_PSIM): $(patsubst %,$(ODIR)/%,$(OBJ_PSIM))
 	@mkdir -p $(ODIR)
 	$(CC) $(CFlags) -I$(IDIR) -o $(ODIR)/$@ $<
 
+%.o: $(SDIR)/msystem/%.cpp
+	@mkdir -p $(ODIR)
+	$(CC) $(CFlags) -I$(IDIR) -o $(ODIR)/$@ $<
+
 %.o: $(SDIR)/parser/%.c	
 	@mkdir -p $(ODIR)
 	$(CC) $(CFlags) -I$(IDIR) -o $(ODIR)/$@ $<
@@ -70,7 +94,7 @@ lex.yy.c: $(SDIR)/parser/plingua.l
 	$(FLEX) -o $(SDIR)/parser/$@ $<  
 	
 clean:
-	$(RM) $(patsubst %,$(ODIR)/%,$(OBJ_PLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_PSIM)) $(BDIR)/$(BIN_PLINGUA)  $(BDIR)/$(BIN_PSIM) $(SDIR)/parser/y.tab.c $(SDIR)/parser/y.tab.h $(SDIR)/parser/lex.yy.c
+	$(RM) -f $(patsubst %,$(ODIR)/%,$(OBJ_PLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_PSIM)) $(patsubst %,$(ODIR)/%,$(OBJ_MLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_MSIM)) $(BDIR)/$(BIN_PLINGUA) $(BDIR)/$(BIN_PSIM) $(BDIR)/$(BIN_MLINGUA) $(BDIR)/$(BIN_MSIM) $(SDIR)/parser/y.tab.c $(SDIR)/parser/y.tab.h $(SDIR)/parser/lex.yy.c
 	
 install:
 	@mkdir -p /usr/local/PLingua/$(BIN_PLINGUA)/
