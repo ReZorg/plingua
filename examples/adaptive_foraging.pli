@@ -1,0 +1,46 @@
+@include "rr_trialectic_model.pli"
+@model<relevance_realization>
+
+def main()
+{
+    /* Adaptive Foraging Agent - RR Cognitive P-System */
+    
+    /* Membrane structure: forest environment containing forager and food sources */
+    @mu = [
+        [
+            /* Forager agent membrane */
+        ]'1
+        [
+            /* Berry patch arena */
+        ]'2
+        [
+            /* Mushroom grove arena */
+        ]'3
+        [
+            /* River fish arena */
+        ]'4
+    ]'0;
+    
+    /* Initialize forager agent with exploration drives */
+    @ms(1) = energy, curiosity, hunger;
+    
+    /* Initialize food source arenas with resources */
+    @ms(2) = berry{10}, nutrition_low;
+    @ms(3) = mushroom{5}, nutrition_med;
+    @ms(4) = fish{3}, nutrition_high;
+    
+    /* Foraging rules: agent explores arenas */
+    [energy, hunger -> forage_signal]'1;
+    
+    /* Resource consumption rules */
+    [berry -> energy_small]'2;
+    [mushroom -> energy_medium]'3;
+    [fish -> energy_large]'4;
+    
+    /* Agent-arena co-constitution: forager learns from environment */
+    [forage_signal, energy_small -> experience, hunger]'1;
+    [forage_signal, energy_large -> experience, satisfaction]'1;
+    
+    /* Adaptive rule: experience increases salience */
+    [experience, experience -> wisdom]'1;
+}

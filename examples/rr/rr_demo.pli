@@ -1,0 +1,33 @@
+@include "rr_triadic_model.pli"
+@model<relevance_realization>
+
+def main()
+{
+    /* Autopoietic triad: (μ_biosynthesis, σ_milieu, τ_transport) */
+    @mu = [
+        [
+            /* Level 1: Autopoietic membrane */
+        ]'1
+        [
+            /* Level 2: Anticipatory membrane */ 
+        ]'2
+        [
+            /* Level 3: Adaptive membrane */
+        ]'3
+    ]'0;
+    
+    /* Initialize autopoietic triad */
+    @ms(1) = mu_bio, sigma_mil, tau_trans;
+    
+    /* Initialize anticipatory triad */
+    @ms(2) = pi_model, state, effector;
+    
+    /* Initialize adaptive triad */
+    @ms(3) = goal, action, affordance;
+    
+    /* Triadic co-constitution rules for autopoiesis */
+    [mu_bio, sigma_mil, tau_trans -> mu_bio2, sigma_mil2, tau_trans2]'1;
+    
+    /* Agent-arena coupling rules */
+    [goal, affordance -> goal2, affordance2]'3;
+}

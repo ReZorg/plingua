@@ -1,0 +1,294 @@
+/*
+ * opencog_ecan.pli
+ *
+ * Economic Attention Network (ECAN) implemented as a pure P-Lingua
+ * membrane computing system integrated with the relevance-realization (RR)
+ * architecture.
+ *
+ * ECAN manages cognitive resource allocation across the AtomSpace by treating
+ * attention (STI/LTI) as a scarce economic resource distributed according to
+ * relevance and usage patterns.
+ *
+ * ECAN mechanisms modelled
+ * ─────────────────────────
+ *   1. STI Spreading Activation   – importance propagates along links
+ *   2. LTI Consolidation          – sustained STI converts to long-term importance
+ *   3. Forgetting / Decay         – unused atoms lose STI/LTI
+ *   4. Rent Collection            – atoms pay STI rent proportional to occupancy
+ *   5. Wage Payment               – atoms that contribute to inference earn wages
+ *   6. Hebbian Learning           – links strengthen with co-activation
+ *   7. Attention Bank             – global STI pool management
+ *   8. Focus Boundary             – attentional focus membrane (AF)
+ *
+ * Membrane mapping
+ * ────────────────
+ *   Membrane 0  : External world / stimulus stream
+ *   Membrane 1  : ECAN root (attention economy)
+ *   Membrane 2  : Attentional Focus (AF) – high-STI atoms
+ *   Membrane 3  : STI Spreading chamber
+ *   Membrane 4  : LTI Consolidation chamber
+ *   Membrane 5  : Forgetting chamber (decay & removal)
+ *   Membrane 6  : Hebbian Learning chamber
+ *   Membrane 7  : Attention Bank (global pool)
+ *   Membrane 8  : RR-ECAN bridge (salience ↔ STI mapping)
+ *
+ * Objects
+ * ───────
+ *   sti_unit{n}      – n units of short-term importance
+ *   lti_unit{n}      – n units of long-term importance
+ *   vlti             – very long-term importance flag
+ *   rent_token       – rent-collection trigger
+ *   wage_token       – wage-payment trigger
+ *   hebbian_token    – Hebbian update trigger
+ *   forget_signal    – atom eligible for forgetting
+ *   stimulus         – external importance stimulus
+ *   spread_token     – spreading-activation trigger
+ *   af_member        – atom is in the attentional focus
+ *   af_border        – atom on AF boundary
+ *   bank_credit{n}   – available STI in the bank
+ *   decay_rate       – exponential decay factor
+ *   link_weight{n}   – Hebbian link weight units
+ *   co_activation    – Hebbian co-activation event
+ *   rr_salience_high, rr_salience_low  – RR bridge signals
+ *   rr_affordance    – RR affordance signal
+ */
+
+@model<opencog_ecan>
+
+@include "opencog_atomspace.pli"
+
+@Θ-system ecan_attention_economy {
+
+    /* ── Affordance space ──────────────────────────────────────────────── */
+    @affordances = {
+        (sti_unit, lti_unit, vlti),                          /* attention vals  */
+        (rent_token, wage_token),                            /* economy tokens  */
+        (hebbian_token, co_activation, link_weight),         /* Hebbian         */
+        (forget_signal, decay_rate),                         /* forgetting      */
+        (stimulus),                                          /* input           */
+        (spread_token),                                      /* spreading       */
+        (af_member, af_border),                              /* focus membrane  */
+        (bank_credit),                                       /* STI bank        */
+        (rr_salience_high, rr_salience_low, rr_affordance)  /* RR interface    */
+    };
+
+    /* ── Agent-Arena boundary ─────────────────────────────────────────── */
+    @agent_arena ecan_core {
+
+        /* ── Membrane 2: Attentional Focus ─────────────────────────── */
+        @lambda[2] 'attentional_focus {
+
+            /*
+             * AF seed: atoms with high STI start here
+             * sti_unit{8} represents an atom above the AF threshold
+             */
+            sti_unit{8}, af_member{3};
+
+            /* Atom enters AF when STI crosses threshold */
+            [sti_unit{6}, stimulus -> sti_unit{8}, af_member]'attentional_focus;
+
+            /* Atom stays in AF if STI remains high */
+            [sti_unit{8}, af_member -> sti_unit{8}, af_member]'attentional_focus;
+
+            /* Atom drifts to AF border as STI decays */
+            [sti_unit{8}, af_member -> sti_unit{5}, af_border]'attentional_focus;
+
+            /* Atom exits AF when STI falls below threshold */
+            [sti_unit{5}, af_border -> sti_unit{3}]'attentional_focus;
+
+            /* High-STI atom spreads to its neighbourhood */
+            [af_member, spread_token -> af_member, spread_token, spread_token]'attentional_focus;
+        }
+
+        /* ── Membrane 3: STI Spreading Activation ─────────────────── */
+        @lambda[3] 'sti_spreading {
+
+            spread_token{1}, sti_unit{2};
+
+            /*
+             * Spreading: source atom donates a fraction of its STI
+             * to connected atoms via Hebbian links
+             */
+            [sti_unit{5}, spread_token, link_weight
+             -> sti_unit{4}, sti_unit{1}, spread_token]'sti_spreading;
+
+            /* Spreading with high Hebbian weight transfers more */
+            [sti_unit{8}, spread_token, link_weight{3}
+             -> sti_unit{5}, sti_unit{3}, spread_token]'sti_spreading;
+
+            /* Spreading dampens over distance */
+            [sti_unit{3}, spread_token
+             -> sti_unit{2}, spread_token]'sti_spreading;
+
+            /* External stimulus injects fresh STI into the system */
+            [stimulus -> sti_unit{6}, spread_token]'sti_spreading;
+        }
+
+        /* ── Membrane 4: LTI Consolidation ─────────────────────────── */
+        @lambda[4] 'lti_consolidation {
+
+            lti_unit{2};
+
+            /*
+             * Consolidation: sustained high STI converts to LTI
+             * Requires multiple sti_unit tokens (repeated access)
+             */
+            [sti_unit{8}, sti_unit{8}, sti_unit{8}
+             -> lti_unit{3}, sti_unit{4}]'lti_consolidation;
+
+            [sti_unit{6}, sti_unit{6}
+             -> lti_unit{1}, sti_unit{4}]'lti_consolidation;
+
+            /* VLTI flag for permanently important atoms */
+            [lti_unit{5}, lti_unit{5} -> lti_unit{8}, vlti]'lti_consolidation;
+
+            /* LTI protects atom from forgetting */
+            [lti_unit{3}, forget_signal -> lti_unit{3}]'lti_consolidation;
+        }
+
+        /* ── Membrane 5: Forgetting chamber ─────────────────────────── */
+        @lambda[5] 'forgetting_chamber {
+
+            decay_rate{1}, forget_signal{2};
+
+            /*
+             * Exponential STI decay: each tick reduces STI by decay_rate
+             */
+            [sti_unit{3}, decay_rate -> sti_unit{2}]'forgetting_chamber;
+            [sti_unit{2}, decay_rate -> sti_unit{1}]'forgetting_chamber;
+            [sti_unit{1}, decay_rate -> sti_unit{0}]'forgetting_chamber;
+
+            /* LTI decay is much slower */
+            [lti_unit{3}, decay_rate, decay_rate, decay_rate
+             -> lti_unit{2}]'forgetting_chamber;
+
+            /* Atom with zero STI and low LTI is marked for forgetting */
+            [sti_unit{0} -> forget_signal]'forgetting_chamber;
+
+            /* Forgotten atom: remove from AtomSpace (sends atom_removed) */
+            [forget_signal, lti_unit{0} -> atom_removed]'forgetting_chamber;
+
+            /* VLTI atoms are never forgotten */
+            [forget_signal, vlti -> vlti]'forgetting_chamber;
+        }
+
+        /* ── Membrane 6: Hebbian Learning ─────────────────────────── */
+        @lambda[6] 'hebbian_learning {
+
+            link_weight{2}, hebbian_token{1};
+
+            /*
+             * Hebbian rule: "neurons that fire together wire together"
+             * Co-activation of two atoms strengthens their link
+             */
+            [co_activation, link_weight, hebbian_token
+             -> link_weight{2}, hebbian_token]'hebbian_learning;
+
+            /* Strong co-activation over time → permanent link */
+            [co_activation, co_activation, link_weight{3}
+             -> link_weight{5}, lti_unit{1}]'hebbian_learning;
+
+            /* Link weight decay when atoms are not co-activated */
+            [link_weight{3}, decay_rate -> link_weight{2}]'hebbian_learning;
+            [link_weight{2}, decay_rate -> link_weight{1}]'hebbian_learning;
+
+            /* Mutual STI spreading generates co-activation signals */
+            [sti_unit{5}, sti_unit{5} -> co_activation]'hebbian_learning;
+        }
+
+        /* ── Membrane 7: Attention Bank ─────────────────────────────── */
+        @lambda[7] 'attention_bank {
+
+            bank_credit{20}, rent_token{1}, wage_token{1};
+
+            /*
+             * Rent collection: atoms in AF pay STI rent to the bank
+             * This prevents runaway STI accumulation
+             */
+            [sti_unit{8}, af_member, rent_token
+             -> sti_unit{6}, bank_credit{2}]'attention_bank;
+
+            [sti_unit{5}, af_border, rent_token
+             -> sti_unit{4}, bank_credit{1}]'attention_bank;
+
+            /*
+             * Wage payment: atoms that contributed to inference earn wages
+             * from the bank, increasing their STI
+             */
+            [bank_credit{2}, wage_token -> sti_unit{3}]'attention_bank;
+            [bank_credit{3}, wage_token -> sti_unit{5}]'attention_bank;
+
+            /* Bank rebalancing: redistribute if credits > threshold */
+            [bank_credit{10} -> bank_credit{5}, stimulus{5}]'attention_bank;
+
+            /* Incoming stimulus deposits STI into the bank */
+            [stimulus -> bank_credit{2}]'attention_bank;
+        }
+
+        /* ── Membrane 8: RR-ECAN bridge ─────────────────────────────── */
+        @lambda[8] 'rr_ecan_bridge {
+
+            rr_salience_low{4}, rr_affordance{2};
+
+            /*
+             * High RR salience → high STI injection
+             * Relevance drives attentional focus
+             */
+            [rr_salience_high, rr_affordance
+             -> sti_unit{6}, stimulus]'rr_ecan_bridge;
+
+            /*
+             * Low RR salience → low STI, atom may be forgotten
+             */
+            [rr_salience_low
+             -> sti_unit{2}, decay_rate]'rr_ecan_bridge;
+
+            /*
+             * AF membership feeds back to RR as high salience
+             */
+            [af_member -> rr_salience_high, @d]'rr_ecan_bridge;
+
+            /*
+             * LTI consolidation feeds back to RR as affordance realization
+             */
+            [lti_unit{3} -> rr_affordance, @d]'rr_ecan_bridge;
+        }
+
+    } /* end agent_arena ecan_core */
+
+    /* ── Emergence: Hebbian consolidation spawns new relation nodes ────── */
+    @emergence ecan_emergence : Λ_hebbian × Λ_af --> Λ_ecan {
+        when co_activation && link_weight{5} && lti_unit{3}:
+            dissolve(Λ_hebbian, Λ_af) --> parent(Λ_ecan) × rr_salience_high;
+    }
+
+    /* ── Constraints ─────────────────────────────────────────────────── */
+    @constraints {
+        κ_sti_bounded   : sti ∈ [-32768, 32767];
+        κ_lti_bounded   : lti ∈ [0, 65535];
+        κ_bank_positive : bank_credits ≥ 0;
+        κ_conservation  : Σ(sti_all_atoms) + bank_credits = CONSTANT;
+        κ_af_size       : |attentional_focus| ≤ max_af_size;
+        κ_hebbian_bound : link_weight ∈ [0, max_link_weight];
+    }
+
+} /* end Θ-system ecan_attention_economy */
+
+/* ── Execution semantics ──────────────────────────────────────────────── */
+@execution_mode max_parallel_ecan {
+    ∀ atom ∈ atomspace:
+        apply_rent_collection(atom);
+        apply_sti_spreading(atom);
+        apply_lti_consolidation(atom);
+        apply_forgetting(atom);
+        apply_hebbian_update(atom);
+}
+
+/* ── ECAN relevance gradient ─────────────────────────────────────────── */
+@compute_relevance {
+    ∇ℜ_ecan = lim_t(
+        Σ(af_member) / |atoms| +
+        0.3 * Σ(lti_unit) / |atoms| +
+        0.2 * Σ(link_weight) / |hebbian_links|
+    );
+}

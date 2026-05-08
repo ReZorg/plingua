@@ -1,0 +1,7 @@
+!relevance_realization_evolution /* Basic RR pattern */
+{
+    [u -> v]'h;
+    [u -> v, @d]'h;
+}
+
+@model(relevance_realization) = relevance_realization_evolution;

@@ -1,0 +1,311 @@
+/*
+ * opencog_moses.pli
+ *
+ * MOSES (Meta-Optimizing Semantic Evolutionary Search) implemented as a
+ * pure P-Lingua membrane computing system integrated into the
+ * relevance-realization (RR) architecture.
+ *
+ * MOSES is OpenCog's program-learning component.  It searches a space of
+ * programs (represented as combo trees) using a hybrid of evolutionary
+ * algorithms and probabilistic model-building, guided by a fitness
+ * (behavioural score) function.
+ *
+ * MOSES mechanisms modelled
+ * ──────────────────────────
+ *   1. Representation Building    – program trees from feature set
+ *   2. Behavioural Scoring        – fitness evaluation on training data
+ *   3. Selection                  – tournament / rank-based selection
+ *   4. Crossover                  – subtree exchange between programs
+ *   5. Mutation                   – point / subtree mutation
+ *   6. Deme Management            – local island populations
+ *   7. Metapopulation             – global population of demes
+ *   8. Feature Selection          – relevance-filtered input features
+ *   9. Knob Turning               – local neighbourhood search
+ *  10. RR-MOSES bridge            – salience guides feature relevance
+ *
+ * Membrane mapping
+ * ────────────────
+ *   Membrane 0  : External training-data environment
+ *   Membrane 1  : MOSES root (metapopulation)
+ *   Membrane 2  : Deme membrane  (local island population)
+ *   Membrane 3  : Representation-building chamber
+ *   Membrane 4  : Fitness evaluation chamber
+ *   Membrane 5  : Selection chamber
+ *   Membrane 6  : Crossover chamber
+ *   Membrane 7  : Mutation chamber
+ *   Membrane 8  : Feature-selection chamber (RR-guided)
+ *   Membrane 9  : Knob-turning chamber (local search)
+ *  Membrane 10  : RR-MOSES bridge
+ *
+ * Objects
+ * ───────
+ *   program{n}       – combo program tree candidate (n = fitness score proxy)
+ *   feature{n}       – input feature (n = relevance weight)
+ *   training_sample  – one training datum
+ *   fitness_high     – high-fitness program signal
+ *   fitness_low      – low-fitness program signal
+ *   fitness_zero     – zero-fitness (unusable) program
+ *   parent_prog      – selected parent for reproduction
+ *   offspring        – newly generated program
+ *   crossover_point  – recombination locus token
+ *   mutation_point   – mutation locus token
+ *   deme_token       – deme identity marker
+ *   migration_token  – inter-deme migration trigger
+ *   knob{n}          – local neighbourhood search dimension
+ *   best_program     – current best candidate
+ *   plateau_signal   – search plateau detected
+ *   rr_salience_high, rr_salience_low  – RR bridge signals
+ *   rr_affordance    – RR affordance for feature scoring
+ */
+
+@model<opencog_moses>
+
+@include "opencog_atomspace.pli"
+
+@Θ-system moses_program_evolution {
+
+    /* ── Affordance space ──────────────────────────────────────────────── */
+    @affordances = {
+        (program, feature),                                  /* core objects    */
+        (training_sample),                                   /* data            */
+        (fitness_high, fitness_low, fitness_zero),           /* fitness tiers   */
+        (parent_prog, offspring),                            /* reproduction    */
+        (crossover_point, mutation_point),                   /* genetic ops     */
+        (deme_token, migration_token),                       /* deme management */
+        (knob),                                              /* local search    */
+        (best_program, plateau_signal),                      /* termination     */
+        (rr_salience_high, rr_salience_low, rr_affordance)  /* RR interface    */
+    };
+
+    /* ── Agent-Arena boundary ─────────────────────────────────────────── */
+    @agent_arena moses_core {
+
+        /* ── Membrane 2: Deme (local island population) ────────────── */
+        @lambda[2] 'deme {
+
+            /* Seed population of random programs */
+            program{3}, deme_token{1};
+
+            /* Deme initialisation: create initial program set */
+            [deme_token, feature{3}
+             -> program{5}, deme_token]'deme;
+
+            /* Migration: exchange best programs between demes */
+            [best_program, migration_token
+             -> best_program, program]'deme;
+
+            /* Deme replacement: low-fitness deme is dissolved */
+            [fitness_zero, fitness_zero, deme_token
+             -> deme_token, @d]'deme;
+        }
+
+        /* ── Membrane 3: Representation-building ───────────────────── */
+        @lambda[3] 'representation_building {
+
+            feature{4};
+
+            /*
+             * Build combo-tree program from selected features
+             * Higher-relevance features (feature{n} with large n) yield
+             * more complex (and potentially fitter) programs
+             */
+            [feature{3}, feature{3} -> program{2}]'representation_building;
+            [feature{2}, feature{3} -> program{1}]'representation_building;
+            [feature{1}            -> program{1}]'representation_building;
+
+            /* RR-guided representation: salient features produce richer trees */
+            [rr_salience_high, feature{2} -> program{3}]'representation_building;
+            [rr_salience_low,  feature{1} -> program{1}]'representation_building;
+        }
+
+        /* ── Membrane 4: Fitness evaluation ─────────────────────────── */
+        @lambda[4] 'fitness_evaluation {
+
+            training_sample{5};
+
+            /*
+             * Score program against training samples
+             * Each matched sample contributes fitness units
+             */
+            [program{2}, training_sample -> program{2}, fitness_high]'fitness_evaluation;
+            [program{1}, training_sample -> program{1}, fitness_low]'fitness_evaluation;
+
+            /* Multiple training samples accumulate to upgrade fitness tier */
+            [fitness_low, fitness_low, fitness_low -> fitness_high]'fitness_evaluation;
+
+            /* Incompatible program produces zero fitness */
+            [program{0}, training_sample -> fitness_zero]'fitness_evaluation;
+
+            /* Best program updated when a high-fitness candidate appears */
+            [fitness_high, fitness_high -> best_program]'fitness_evaluation;
+
+            /* Plateau detection: no fitness_high for many cycles */
+            [fitness_low, fitness_low, fitness_low, fitness_low
+             -> plateau_signal]'fitness_evaluation;
+        }
+
+        /* ── Membrane 5: Selection ────────────────────────────────────── */
+        @lambda[5] 'selection {
+
+            /*
+             * Tournament selection: high-fitness programs survive
+             */
+            [fitness_high, program{2} -> parent_prog, fitness_high]'selection;
+            [fitness_low,  program{1} -> parent_prog]'selection;
+
+            /* Rank-based selection favours high fitness */
+            [fitness_high, fitness_high -> parent_prog, parent_prog]'selection;
+
+            /* Elitism: best program always survives */
+            [best_program -> best_program, parent_prog]'selection;
+
+            /* Low-fitness programs are culled */
+            [fitness_zero -> @d]'selection;
+        }
+
+        /* ── Membrane 6: Crossover ────────────────────────────────────── */
+        @lambda[6] 'crossover {
+
+            crossover_point{2};
+
+            /*
+             * Subtree crossover: swap subtrees between two parents
+             * Produces two offspring from two parent programs
+             */
+            [parent_prog, parent_prog, crossover_point
+             -> offspring, offspring]'crossover;
+
+            /* Single-point crossover */
+            [parent_prog, crossover_point -> offspring]'crossover;
+
+            /* Offspring inherits some properties from both parents */
+            [offspring, fitness_high -> offspring, fitness_high]'crossover;
+        }
+
+        /* ── Membrane 7: Mutation ─────────────────────────────────────── */
+        @lambda[7] 'mutation {
+
+            mutation_point{2};
+
+            /*
+             * Point mutation: change one node in the program tree
+             */
+            [parent_prog, mutation_point -> offspring]'mutation;
+
+            /* Subtree mutation: replace a subtree with a random one */
+            [parent_prog, mutation_point, feature{2}
+             -> offspring]'mutation;
+
+            /*
+             * Plateau escape: when plateau detected, increase mutation rate
+             */
+            [parent_prog, mutation_point, plateau_signal
+             -> offspring, mutation_point, mutation_point]'mutation;
+
+            /* Mutation creates diversity from best program */
+            [best_program, mutation_point -> offspring]'mutation;
+        }
+
+        /* ── Membrane 8: Feature selection (RR-guided) ───────────────── */
+        @lambda[8] 'feature_selection {
+
+            feature{6};
+
+            /*
+             * Feature relevance scoring using mutual information proxy
+             * High-relevance features (high RR salience) are promoted
+             */
+            [feature{2}, rr_salience_high -> feature{3}]'feature_selection;
+            [feature{2}, rr_salience_low  -> feature{1}]'feature_selection;
+            [feature{1}, rr_affordance    -> feature{2}]'feature_selection;
+
+            /* Irrelevant features are discarded */
+            [feature{0}, rr_salience_low -> @d]'feature_selection;
+
+            /* Top-k feature selection: keep only high-relevance features */
+            [feature{3} -> feature{3}, rr_affordance]'feature_selection;
+        }
+
+        /* ── Membrane 9: Knob-turning (local search) ─────────────────── */
+        @lambda[9] 'knob_turning {
+
+            knob{3};
+
+            /*
+             * Knob turning explores the neighbourhood of a program
+             * Each knob{n} represents one adjustable parameter
+             */
+            [program{2}, knob{2} -> offspring, offspring, offspring]'knob_turning;
+            [program{1}, knob{1} -> offspring, offspring]'knob_turning;
+
+            /* Best neighbour replaces current program */
+            [offspring, fitness_high, knob{1} -> best_program, knob{1}]'knob_turning;
+
+            /* Exhausted knobs return control to deme level */
+            [knob{0} -> @d]'knob_turning;
+        }
+
+        /* ── Membrane 10: RR-MOSES bridge ─────────────────────────────── */
+        @lambda[10] 'rr_moses_bridge {
+
+            rr_salience_low{3}, rr_affordance{2};
+
+            /*
+             * High RR salience → relevant features get more resources
+             */
+            [rr_salience_high -> feature{3}, knob{2}]'rr_moses_bridge;
+
+            /*
+             * Low salience → fewer features, faster convergence
+             */
+            [rr_salience_low  -> feature{1}, knob{1}]'rr_moses_bridge;
+
+            /*
+             * Best program fed back to RR as high salience (goal achieved)
+             */
+            [best_program -> rr_salience_high, @d]'rr_moses_bridge;
+
+            /*
+             * Plateau signal triggers RR reweighting of affordances
+             */
+            [plateau_signal -> rr_salience_low, rr_affordance, @d]'rr_moses_bridge;
+        }
+
+    } /* end agent_arena moses_core */
+
+    /* ── Emergence: program breakthrough elevates system relevance ─────── */
+    @emergence moses_emergence : Λ_deme × Λ_eval --> Λ_metapop {
+        when best_program && fitness_high && fitness_high:
+            dissolve(Λ_deme, Λ_eval) --> parent(Λ_metapop) × rr_salience_high;
+    }
+
+    /* ── Constraints ─────────────────────────────────────────────────── */
+    @constraints {
+        κ_fitness_bounded  : fitness ∈ [-1.0, 0];   /* Implementation uses [-1.0, 0] */
+        κ_pop_size         : |deme| ≤ max_deme_size;
+        κ_feature_count    : |selected_features| ≤ max_features;
+        κ_combo_depth      : depth(program_tree) ≤ max_tree_depth;
+        κ_rr_guided_search : feature_relevance ∝ rr_salience;
+    }
+
+} /* end Θ-system moses_program_evolution */
+
+/* ── Execution semantics ──────────────────────────────────────────────── */
+@execution_mode max_parallel_moses {
+    ∀ deme ∈ metapopulation:
+        evaluate_fitness(deme);
+        select_parents(deme);
+        apply_crossover(deme);
+        apply_mutation(deme);
+        apply_knob_turning(deme);
+        update_rr_from_moses(deme);
+}
+
+/* ── MOSES relevance gradient ─────────────────────────────────────────── */
+@compute_relevance {
+    ∇ℜ_moses = lim_t(
+        fitness(best_program) / max_possible_fitness +
+        0.3 * |selected_features| / |all_features| +
+        0.2 * Σ(rr_salience_high) / |features|
+    );
+}

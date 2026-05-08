@@ -1,0 +1,220 @@
+/*
+ * opencog_atomspace.pli
+ *
+ * OpenCog AtomSpace implemented as a pure P-Lingua membrane computing system.
+ *
+ * The AtomSpace is the central knowledge-representation hypergraph of OpenCog.
+ * Every piece of knowledge is represented as an Atom (node or link) together
+ * with a Truth Value (strength, confidence) and an Attention Value
+ * (STI – short-term importance, LTI – long-term importance).
+ *
+ * Membrane mapping
+ * ────────────────
+ *   Membrane 0  : Environment / external world
+ *   Membrane 1  : AtomSpace root (the whole knowledge store)
+ *   Membrane 2  : Node compartment  (ConceptNode, PredicateNode, …)
+ *   Membrane 3  : Link compartment  (InheritanceLink, EvaluationLink, …)
+ *   Membrane 4  : Truth-Value processor (SimpleTruthValue arithmetic)
+ *   Membrane 5  : Attention-Value processor (STI/LTI management)
+ *   Membrane 6  : Pattern-Matching engine (unification / query)
+ *
+ * Objects (multiset elements)
+ * ───────────────────────────
+ *   concept{n}          – ConceptNode with multiplicity n (encodes STI)
+ *   predicate{n}        – PredicateNode
+ *   number{n}           – NumberNode
+ *   schema_atom{n}      – SchemaNode
+ *   inheritance_link    – InheritanceLink token
+ *   eval_link           – EvaluationLink token
+ *   impl_link           – ImplicationLink token
+ *   sim_link            – SimilarityLink token
+ *   member_link         – MemberLink token
+ *   and_link            – AndLink token
+ *   or_link             – OrLink token
+ *   not_link            – NotLink token
+ *   equiv_link          – EquivalenceLink token
+ *   tv_high             – truth value strength > 0.8
+ *   tv_medium           – truth value strength 0.4–0.8
+ *   tv_low              – truth value strength < 0.4
+ *   conf_high           – confidence > 0.8
+ *   conf_low            – confidence < 0.4
+ *   sti_high            – short-term importance > threshold
+ *   sti_low             – short-term importance below threshold
+ *   lti_high            – long-term importance > threshold
+ *   query               – incoming pattern-match query token
+ *   result              – successful match token
+ *   no_result           – failed match token
+ *   atom_added          – event: new atom inserted
+ *   atom_removed        – event: atom deleted
+ *   atom_updated        – event: atom truth value revised
+ */
+
+@model<opencog_atomspace>
+
+@Θ-system atomspace_psystem {
+
+    /* ── Affordance space ──────────────────────────────────────────────── */
+    @affordances = {
+        (concept, predicate, number, schema_atom),       /* node types     */
+        (inheritance_link, eval_link, impl_link,
+         sim_link, member_link, and_link, or_link,
+         not_link, equiv_link),                          /* link types     */
+        (tv_high, tv_medium, tv_low),                    /* truth values   */
+        (conf_high, conf_low),                           /* confidence     */
+        (sti_high, sti_low, lti_high, lti_low),         /* attention vals */
+        (query, result, no_result),                      /* query tokens   */
+        (atom_added, atom_removed, atom_updated)         /* events         */
+    };
+
+    /* ── Agent-Arena boundary ─────────────────────────────────────────── */
+    @agent_arena atomspace_core {
+
+        /* ── Membrane 2: Node compartment ─────────────────────────── */
+        @lambda[2] 'node_compartment {
+
+            /* Initial population of node types */
+            concept{4}, predicate{3}, number{2}, schema_atom{1};
+
+            /* Node creation: external stimulus triggers new concept */
+            [concept, atom_added -> concept{2}, atom_updated]'node_compartment;
+
+            /* Node with high truth value propagates to link compartment */
+            [concept, tv_high -> concept, inheritance_link]'node_compartment;
+
+            /* Predicate node enables evaluation links */
+            [predicate, concept -> eval_link, atom_updated]'node_compartment;
+
+            /* Number node participates in schema execution */
+            [number, schema_atom -> schema_atom, atom_updated]'node_compartment;
+        }
+
+        /* ── Membrane 3: Link compartment ─────────────────────────── */
+        @lambda[3] 'link_compartment {
+
+            /* Initial link population */
+            inheritance_link{3}, eval_link{2}, impl_link{1},
+            sim_link{1}, member_link{1};
+
+            /* Inheritance link with high confidence generates similarity */
+            [inheritance_link, conf_high -> inheritance_link, sim_link]'link_compartment;
+
+            /* Implication link + high tv enables deduction output */
+            [impl_link, tv_high -> impl_link, atom_updated]'link_compartment;
+
+            /* And-link aggregation from multiple eval links */
+            [eval_link, eval_link -> and_link, atom_updated]'link_compartment;
+
+            /* Or-link from competing inheritance links */
+            [inheritance_link, sim_link -> or_link]'link_compartment;
+
+            /* Not-link negation processing */
+            [not_link, tv_high -> not_link, tv_low]'link_compartment;
+
+            /* Equivalence from symmetric similarity */
+            [sim_link, sim_link -> equiv_link]'link_compartment;
+
+            /* EvaluationLink composed from predicate + list */
+            [eval_link, member_link -> eval_link, atom_updated]'link_compartment;
+        }
+
+        /* ── Membrane 4: Truth-Value processor ────────────────────── */
+        @lambda[4] 'tv_processor {
+
+            /* Initial truth-value tokens */
+            tv_medium{5}, conf_high{3}, conf_low{2};
+
+            /* Revision rule: two evidence streams merge (Bayesian update) */
+            [tv_high, tv_medium -> tv_high, conf_high]'tv_processor;
+            [tv_medium, tv_medium -> tv_medium, conf_high]'tv_processor;
+            [tv_low, tv_medium -> tv_medium, conf_low]'tv_processor;
+
+            /* Confidence decay: isolated low-confidence atoms weaken */
+            [tv_medium, conf_low -> tv_low]'tv_processor;
+
+            /* High confidence promotes atom to high TV */
+            [tv_medium, conf_high, conf_high -> tv_high, conf_high]'tv_processor;
+
+            /* SimpleTruthValue → IndefiniteTruthValue promotion */
+            [tv_high, conf_high -> tv_high, conf_high, atom_updated]'tv_processor;
+        }
+
+        /* ── Membrane 5: Attention-Value processor ─────────────────── */
+        @lambda[5] 'attention_processor {
+
+            /* Initial attention tokens */
+            sti_low{6}, lti_low{4};
+
+            /* STI boost when atom is accessed (use-based activation) */
+            [sti_low, atom_updated -> sti_high]'attention_processor;
+            [sti_high, atom_updated -> sti_high]'attention_processor;
+
+            /* STI decay between accesses */
+            [sti_high -> sti_low]'attention_processor;
+
+            /* LTI consolidation from repeated STI boosts */
+            [sti_high, sti_high, sti_high -> lti_high]'attention_processor;
+
+            /* LTI persistence even when STI drops */
+            [lti_high -> lti_high]'attention_processor;
+
+            /* Forgetting: very low STI + low LTI triggers removal */
+            [sti_low, lti_low -> atom_removed]'attention_processor;
+        }
+
+        /* ── Membrane 6: Pattern-Matching engine ───────────────────── */
+        @lambda[6] 'pattern_matcher {
+
+            /* Initial state: ready for queries */
+            query{0};
+
+            /* Successful variable binding: query matches concept */
+            [query, concept, tv_high -> result, concept]'pattern_matcher;
+
+            /* Successful binding against evaluation link */
+            [query, eval_link, conf_high -> result, eval_link]'pattern_matcher;
+
+            /* No match when TV is too low */
+            [query, tv_low -> no_result]'pattern_matcher;
+
+            /* Recursive pattern traversal via inheritance */
+            [query, inheritance_link -> query, query]'pattern_matcher;
+
+            /* Result propagates upward to AtomSpace root */
+            [result -> result, @d]'pattern_matcher;
+        }
+
+    } /* end agent_arena atomspace_core */
+
+    /* ── Cross-membrane emergence rules ──────────────────────────────── */
+    @emergence atomspace_emergence : Λ_node × Λ_link --> Λ_atomspace {
+        when tv_high && conf_high && sti_high:
+            dissolve(Λ_node, Λ_link) --> parent(Λ_atomspace) × atom_updated;
+    }
+
+    /* ── Constraints ─────────────────────────────────────────────────── */
+    @constraints {
+        κ_tv_bounded  : strength(tv) ∈ [0, 1];
+        κ_conf_bounded: confidence(tv) ∈ [0, 1];
+        κ_sti_bounded : sti(av) ∈ [-32768, 32767];
+        κ_lti_bounded : lti(av) ∈ [0, 65535];
+        κ_atom_unique : ∀ atom_a, atom_b ∈ atoms:
+                            (type(atom_a) = type(atom_b) ∧ name(atom_a) = name(atom_b))
+                            → atom_a = atom_b;
+    }
+
+} /* end Θ-system atomspace_psystem */
+
+/* ── Execution semantics ──────────────────────────────────────────────── */
+@execution_mode max_parallel_atomspace {
+    ∀ atom ∈ active_atoms:
+        apply_applicable_tv_rules(atom);
+        apply_applicable_attention_rules(atom);
+}
+
+/* ── Relevance gradient for AtomSpace ────────────────────────────────── */
+@compute_relevance {
+    ∇ℜ_atomspace = lim_t(
+        Σ(sti_high) / |atoms| +
+        Σ(tv_high ∧ conf_high) / |atoms|
+    );
+}

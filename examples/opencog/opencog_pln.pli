@@ -1,0 +1,302 @@
+/*
+ * opencog_pln.pli
+ *
+ * Probabilistic Logic Networks (PLN) implemented as a pure P-Lingua
+ * membrane computing system integrated into the relevance-realization (RR)
+ * architecture.
+ *
+ * PLN is the primary inference engine of OpenCog.  It extends classical
+ * logic with uncertain truth values, enabling graded reasoning over the
+ * AtomSpace hypergraph.
+ *
+ * Inference rule families implemented
+ * ─────────────────────────────────────
+ *   1. Deduction   (A→B, A  ⊢  B)
+ *   2. Induction   (A→B, A→C  ⊢  B→C)
+ *   3. Abduction   (A→B, B   ⊢  A with reduced confidence)
+ *   4. Revision    (TV₁ ⊕ TV₂  →  revised TV)
+ *   5. Conjunction (A ∧ B)
+ *   6. Disjunction (A ∨ B)
+ *   7. Negation    (¬A)
+ *   8. Modus Ponens (A, A→B  ⊢  B)
+ *   9. Similarity  (A ≡ B via symmetric evidence)
+ *  10. Intensional Inheritance (attribute-based)
+ *
+ * Membrane mapping
+ * ────────────────
+ *   Membrane 0  : Environment (external evidence stream)
+ *   Membrane 1  : PLN engine root
+ *   Membrane 2  : Forward-chaining chamber   (deduction / modus ponens)
+ *   Membrane 3  : Backward-chaining chamber  (abduction / goal-driven)
+ *   Membrane 4  : Revision chamber           (truth-value merging)
+ *   Membrane 5  : Induction chamber          (generalisation)
+ *   Membrane 6  : Logical-operator chamber   (AND / OR / NOT)
+ *   Membrane 7  : Similarity chamber         (SimilarityLink inference)
+ *   Membrane 8  : RR-PLN bridge              (RR salience → PLN TV)
+ *
+ * Objects
+ * ───────
+ *   premise_a, premise_b    – input premises (ConceptNode proxies)
+ *   rule_deduce             – deduction rule application token
+ *   rule_induct             – induction rule application token
+ *   rule_abduce             – abduction rule application token
+ *   rule_revise             – revision rule application token
+ *   rule_and, rule_or,
+ *   rule_not                – Boolean-style rule tokens
+ *   rule_sim                – similarity rule token
+ *   conclusion              – produced conclusion atom
+ *   tv_strong, tv_weak      – truth-value strength signals
+ *   conf_high, conf_low     – confidence signals
+ *   evidence{n}             – counted evidence units
+ *   rr_salience_high        – high salience signal from RR engine
+ *   rr_salience_low         – low salience signal
+ *   rr_affordance           – affordance signal from RR engine
+ *   inference_done          – cycle-complete signal
+ *   chain_fwd, chain_bwd    – chaining direction tokens
+ */
+
+@model<opencog_pln>
+
+@include "opencog_atomspace.pli"
+
+@Θ-system pln_inference_engine {
+
+    /* ── Affordance space ──────────────────────────────────────────────── */
+    @affordances = {
+        (premise_a, premise_b),                              /* premises        */
+        (rule_deduce, rule_induct, rule_abduce,
+         rule_revise, rule_and, rule_or, rule_not,
+         rule_sim),                                          /* rule tokens     */
+        (conclusion),                                        /* output          */
+        (tv_strong, tv_weak),                                /* strength tiers  */
+        (conf_high, conf_low),                               /* confidence tiers*/
+        (evidence),                                          /* evidence units  */
+        (rr_salience_high, rr_salience_low, rr_affordance), /* RR interface    */
+        (inference_done),                                    /* cycle complete  */
+        (chain_fwd, chain_bwd)                               /* chaining mode   */
+    };
+
+    /* ── Agent-Arena boundary ─────────────────────────────────────────── */
+    @agent_arena pln_core {
+
+        /* ── Membrane 2: Forward-Chaining (Deduction / Modus Ponens) ─ */
+        @lambda[2] 'forward_chain {
+
+            /* Seed: a premise and a rule trigger */
+            premise_a{2}, premise_b{1}, rule_deduce{1}, chain_fwd{1};
+
+            /*
+             * Deduction: A→B, A  ⊢  B
+             * High-strength antecedent + implication → strong conclusion
+             */
+            [premise_a, premise_b, rule_deduce, tv_strong
+             -> conclusion, tv_strong, conf_high, inference_done]'forward_chain;
+
+            /*
+             * Modus Ponens: A ∧ (A→B) → B
+             * Fires when both premise and implication link are present
+             */
+            [premise_a, rule_deduce, tv_strong
+             -> conclusion, tv_strong, inference_done]'forward_chain;
+
+            /*
+             * Weak deduction: low-TV antecedent degrades confidence
+             */
+            [premise_a, premise_b, rule_deduce, tv_weak
+             -> conclusion, tv_weak, conf_low, inference_done]'forward_chain;
+
+            /* Forward-chain result propagates up */
+            [conclusion, chain_fwd -> conclusion, @d]'forward_chain;
+        }
+
+        /* ── Membrane 3: Backward-Chaining (Abduction / Goal-driven) ─ */
+        @lambda[3] 'backward_chain {
+
+            /* Seed: goal (desired conclusion) with backward-chain token */
+            premise_b{1}, rule_abduce{1}, chain_bwd{1};
+
+            /*
+             * Abduction: A→B, B  ⊢  A  (with halved confidence)
+             * Observed consequent suggests antecedent hypothesis
+             */
+            [premise_b, rule_abduce, tv_strong
+             -> premise_a, tv_strong, conf_low, inference_done]'backward_chain;
+
+            /*
+             * Backward chaining with weak evidence – very low confidence
+             */
+            [premise_b, rule_abduce, tv_weak
+             -> premise_a, tv_weak, conf_low, inference_done]'backward_chain;
+
+            /* Recursive sub-goal generation */
+            [premise_b, chain_bwd -> premise_b, chain_bwd, chain_bwd]'backward_chain;
+
+            /* Conclusion of backward chain exported upward */
+            [premise_a, chain_bwd, inference_done -> premise_a, @d]'backward_chain;
+        }
+
+        /* ── Membrane 4: Revision chamber ─────────────────────────── */
+        @lambda[4] 'revision_chamber {
+
+            /*
+             * Revision: merge two independent truth values (Bayesian update)
+             * TV_revised = weighted average, confidence combined
+             *
+             * Strong + strong → stronger with higher confidence
+             */
+            [tv_strong, tv_strong, rule_revise
+             -> tv_strong, conf_high, inference_done]'revision_chamber;
+
+            /* Strong + weak → moderate confidence revised TV */
+            [tv_strong, tv_weak, rule_revise
+             -> tv_strong, conf_low, inference_done]'revision_chamber;
+
+            /* Weak + weak → weak revised TV */
+            [tv_weak, tv_weak, rule_revise
+             -> tv_weak, conf_low, inference_done]'revision_chamber;
+
+            /* Evidence accumulation boosts confidence */
+            [evidence, evidence, rule_revise -> tv_strong, conf_high]'revision_chamber;
+            [evidence, rule_revise -> tv_weak, conf_low]'revision_chamber;
+        }
+
+        /* ── Membrane 5: Induction chamber ────────────────────────── */
+        @lambda[5] 'induction_chamber {
+
+            rule_induct{1};
+
+            /*
+             * Induction: A→B, A→C  ⊢  B→C
+             * Shared antecedent generates generalised link
+             */
+            [premise_a, premise_b, rule_induct, tv_strong
+             -> conclusion, tv_strong, conf_low, inference_done]'induction_chamber;
+
+            /*
+             * Statistical induction from evidence count
+             * More evidence → higher confidence
+             */
+            [evidence, evidence, evidence, rule_induct
+             -> tv_strong, conf_high]'induction_chamber;
+
+            [evidence, evidence, rule_induct
+             -> tv_weak, conf_low]'induction_chamber;
+        }
+
+        /* ── Membrane 6: Logical-operator chamber ─────────────────── */
+        @lambda[6] 'logical_ops {
+
+            rule_and{1}, rule_or{1}, rule_not{1};
+
+            /*
+             * Conjunction: TV(A∧B) = [s_A · s_B, min(c_A, c_B)]
+             */
+            [tv_strong, tv_strong, rule_and
+             -> conclusion, tv_strong, conf_high]'logical_ops;
+
+            [tv_strong, tv_weak, rule_and
+             -> conclusion, tv_weak, conf_low]'logical_ops;
+
+            [tv_weak, tv_weak, rule_and
+             -> conclusion, tv_weak, conf_low]'logical_ops;
+
+            /*
+             * Disjunction: TV(A∨B) = [s_A + s_B − s_A·s_B, min(c_A,c_B)]
+             */
+            [tv_strong, tv_strong, rule_or
+             -> conclusion, tv_strong, conf_high]'logical_ops;
+
+            [tv_weak, tv_strong, rule_or
+             -> conclusion, tv_strong, conf_low]'logical_ops;
+
+            [tv_weak, tv_weak, rule_or
+             -> conclusion, tv_weak, conf_low]'logical_ops;
+
+            /*
+             * Negation: TV(¬A) = [1 − s_A, c_A]
+             */
+            [tv_strong, rule_not -> conclusion, tv_weak, conf_high]'logical_ops;
+            [tv_weak,   rule_not -> conclusion, tv_strong, conf_high]'logical_ops;
+        }
+
+        /* ── Membrane 7: Similarity chamber ───────────────────────── */
+        @lambda[7] 'similarity_chamber {
+
+            rule_sim{1};
+
+            /*
+             * Similarity: symmetric evidence from both directions
+             * A→B ∧ B→A  ⊢  A≡B
+             */
+            [premise_a, premise_b, rule_sim, tv_strong
+             -> conclusion, tv_strong, conf_high, inference_done]'similarity_chamber;
+
+            [premise_a, premise_b, rule_sim, tv_weak
+             -> conclusion, tv_weak, conf_low,  inference_done]'similarity_chamber;
+
+            /* Intensional inheritance: attribute overlap drives similarity */
+            [premise_a, premise_b, rule_sim, conf_high
+             -> conclusion, tv_strong, conf_high]'similarity_chamber;
+        }
+
+        /* ── Membrane 8: RR-PLN bridge ─────────────────────────────── */
+        @lambda[8] 'rr_pln_bridge {
+
+            rr_salience_low{4}, rr_affordance{2};
+
+            /*
+             * High RR salience promotes strong prior TV for PLN premises
+             * Relevance → epistemic weight in probabilistic reasoning
+             */
+            [rr_salience_high, rr_affordance
+             -> premise_a, tv_strong, conf_high]'rr_pln_bridge;
+
+            /*
+             * Low RR salience → weak prior
+             */
+            [rr_salience_low, rr_affordance
+             -> premise_a, tv_weak, conf_low]'rr_pln_bridge;
+
+            /*
+             * Completed inference sends result back to RR as salience update
+             */
+            [inference_done, tv_strong
+             -> rr_salience_high, @d]'rr_pln_bridge;
+
+            [inference_done, tv_weak
+             -> rr_salience_low, @d]'rr_pln_bridge;
+        }
+
+    } /* end agent_arena pln_core */
+
+    /* ── Emergence: inference conclusions elevate system coherence ───── */
+    @emergence pln_emergence : Λ_fwd × Λ_bwd --> Λ_pln {
+        when inference_done && tv_strong && conf_high:
+            dissolve(Λ_fwd, Λ_bwd) --> parent(Λ_pln) × rr_salience_high;
+    }
+
+    /* ── Constraints ─────────────────────────────────────────────────── */
+    @constraints {
+        κ_tv_range     : strength(tv) ∈ [0, 1];
+        κ_conf_range   : confidence(tv) ∈ [0, 1];
+        κ_soundness    : ∀ conclusion: derived_from_valid_premises(conclusion);
+        κ_completeness : ∀ entailed_conclusion ∃ derivation_path;
+        κ_rr_coupling  : pln_confidence ∝ rr_salience;
+    }
+
+} /* end Θ-system pln_inference_engine */
+
+/* ── Execution semantics ──────────────────────────────────────────────── */
+@execution_mode max_parallel_pln {
+    ∀ (premise, rule) ∈ active_inference_pairs:
+        apply_applicable_inference_rules(premise, rule);
+        update_rr_from_pln_results();
+}
+
+/* ── PLN relevance gradient ───────────────────────────────────────────── */
+@compute_relevance {
+    ∇ℜ_pln = lim_t(
+        Σ(conclusions_with_tv_strong) / |active_premises| +
+        0.4 * Σ(conf_high) / |conclusions|
+    );
+}

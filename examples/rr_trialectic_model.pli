@@ -1,0 +1,83 @@
+/*
+ * Sample P-Lingua^RR Model: Autopoietic Triad with Agent-Arena Relations
+ * 
+ * This demonstrates the transformation from P-System to Relevance Realization
+ * using the trialectic architecture (Λ¹, Λ², Λ³) as described in the documents.
+ */
+
+/* Model Definition */
+@model<relevance_realization>
+
+/* Define the trialectic system with autopoiesis, anticipation, and adaptation */
+def main() {
+
+    /* Level 1: Autopoietic membrane (Λ¹) - Arena */
+    @membrane(autopoiesis, 0) {
+        /* Initial triad: (μ_bio, σ_mil, τ_trans) */
+        mu_bio{3}, sigma_mil{2}, tau_trans{4};
+        
+        /* Autopoietic co-constitution rule: trialectic coherence */
+        [r1] mu_bio, sigma_mil, tau_trans --> mu_bio{2}, sigma_mil{2}, tau_trans{2}, energy;
+        
+        /* Self-maintenance through mutual specification */
+        [r2] mu_bio{2} --> mu_bio, component_a;
+        [r3] sigma_mil{2} --> sigma_mil, component_b;  
+        [r4] tau_trans{2} --> tau_trans, component_c;
+        
+        /* Level 2: Anticipatory membrane (Λ²) - Agent */
+        @membrane(anticipation, 0) {
+            /* Anticipatory triad: (π_mod, ς_state, ε_eff) */
+            pi_model{2}, sigma_state{1}, epsilon_eff{3};
+            
+            /* Predictive projection rules */
+            [r5] pi_model, sigma_state --> pi_model, prediction, sigma_state{2};
+            [r6] prediction, epsilon_eff --> future_state, epsilon_eff{2};
+            [r7] future_state --> goal_state, anticipation_signal;
+            
+            /* Level 3: Adaptive membrane (Λ³) - Agent-Arena Interface */
+            @membrane(adaptation, 0) {
+                /* Agent-arena triad: (γ_goal, α_act, φ_aff) */
+                gamma_goal{1}, alpha_action{2}, phi_affordance{3};
+                
+                /* Agent-arena co-construction */
+                [r8] gamma_goal, phi_affordance --> gamma_goal, alpha_action, realized_affordance;
+                [r9] alpha_action --> action_potential{2}, feedback;
+                [r10] realized_affordance, feedback --> emergent_coupling, phi_affordance{2};
+                
+                /* Emergence detection */
+                [r11] emergent_coupling{3} --> [ ]adaptation^+ system_wisdom;
+            }
+        }
+    }
+
+    /* Environmental arena with affordance landscape */
+    alpha{5}, beta{3}, gamma{2}, delta{4};
+    
+    /* Environmental interaction rules - arena dynamics */
+    [r12] alpha --> alpha, environmental_signal;
+    [r13] environmental_signal[ ]autopoiesis --> [ ]autopoiesis beta, mu_bio;
+    
+    /* Relevance realization gradient computation rules */
+    [r14] system_wisdom --> relevance_pulse{10};
+    [r15] relevance_pulse{5} --> [ ]anticipation affordance_boost{3};
+}
+
+/* Define global RR parameters for the transformation */
+@rr_parameters {
+    salience_threshold = 0.8;
+    affordance_decay = 0.1;
+    emergence_sensitivity = 0.7;
+    trialectic_coupling = 0.9;
+}
+
+/* Relevance computation expressions */
+@compute_relevance {
+    /* ∇ℜ = lim_{t→∞} Σᵢ log(affordance_realizationᵢ(t)/affordance_potentialᵢ(t)) */
+    relevance_gradient = log(realized_affordance / phi_affordance);
+    
+    /* Agent-arena co-construction strength */
+    co_construction = (gamma_goal * phi_affordance + alpha_action * environmental_signal) / 2;
+    
+    /* System wisdom emergence threshold */
+    wisdom_threshold = (relevance_gradient + co_construction + trialectic_coupling) / 3;
+}
