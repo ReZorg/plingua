@@ -82,6 +82,20 @@ private:
             return updateSalience(line);
         } else if (line.find("(find-atom") == 0) {
             return findAtom(line);
+        // ── Ennead / grip extensions ──────────────────────────────────────────
+        } else if (line.find("(get-ennead") == 0) {
+            return getEnnead(line);
+        } else if (line.find("(get-grip-index") == 0) {
+            return getGripIndex(line);
+        } else if (line.find("(get-system-ennead)") == 0) {
+            return getSystemEnnead();
+        } else if (line.find("(get-global-metrics)") == 0) {
+            return getGlobalMetrics();
+        } else if (line.find("(set-grip-threshold") == 0) {
+            return setGripThreshold(line);
+        } else if (line.find("(set-emergence-sensitivity") == 0) {
+            return setEmergenceSensitivity(line);
+        // ─────────────────────────────────────────────────────────────────────
         } else {
             return "Unknown command: " + line;
         }
@@ -265,17 +279,106 @@ private:
     
     void printHelp() {
         std::cout << "Available commands:" << std::endl;
-        std::cout << "  (list-rr-nodes)           - List all RR nodes" << std::endl;
-        std::cout << "  (list-atoms)              - List all atoms" << std::endl;
-        std::cout << "  (get-system-relevance)    - Get overall system relevance" << std::endl;
-        std::cout << "  (run-pln-inference)       - Run PLN inference cycle" << std::endl;
-        std::cout << "  (find-patterns)           - Find emergent patterns" << std::endl;
-        std::cout << "  (get-salience node-ID)    - Get salience of node" << std::endl;
-        std::cout << "  (update-salience node-ID VALUE) - Update node salience" << std::endl;
-        std::cout << "  (find-atom \"NAME\")         - Find atom by name" << std::endl;
-        std::cout << "  help                      - Show this help" << std::endl;
-        std::cout << "  quit/exit                 - Exit REPL" << std::endl;
+        std::cout << "  (list-rr-nodes)                    - List all RR nodes" << std::endl;
+        std::cout << "  (list-atoms)                       - List all atoms" << std::endl;
+        std::cout << "  (get-system-relevance)             - Get overall system relevance" << std::endl;
+        std::cout << "  (run-pln-inference)                - Run PLN inference cycle" << std::endl;
+        std::cout << "  (find-patterns)                    - Find emergent patterns" << std::endl;
+        std::cout << "  (get-salience node-ID)             - Get salience of node" << std::endl;
+        std::cout << "  (update-salience node-ID VALUE)    - Update node salience" << std::endl;
+        std::cout << "  (find-atom \"NAME\")                  - Find atom by name" << std::endl;
+        std::cout << "  (get-ennead node-ID)               - Get ennead state of node" << std::endl;
+        std::cout << "  (get-grip-index node-ID)           - Get grip index of node" << std::endl;
+        std::cout << "  (get-system-ennead)                - Get system-level ennead" << std::endl;
+        std::cout << "  (get-global-metrics)               - Get global objective metrics" << std::endl;
+        std::cout << "  (set-grip-threshold VALUE)         - Set grip threshold" << std::endl;
+        std::cout << "  (set-emergence-sensitivity VALUE)  - Set emergence sensitivity" << std::endl;
+        std::cout << "  help                               - Show this help" << std::endl;
+        std::cout << "  quit/exit                          - Exit REPL" << std::endl;
     }
+
+    // ── Ennead / grip helpers ─────────────────────────────────────────────────
+
+    unsigned parseNodeId(const std::string& cmd) {
+        static const std::string PREFIX = "node-";
+        size_t p = cmd.find(PREFIX);
+        if (p == std::string::npos) return 0;
+        p += PREFIX.size();
+        size_t end = cmd.find_first_not_of("0123456789", p);
+        std::string id_str = (end == std::string::npos) ? cmd.substr(p) : cmd.substr(p, end - p);
+        try { return static_cast<unsigned>(std::stoul(id_str)); } catch (...) { return 0; }
+    }
+
+    double parseValueArg(const std::string& cmd) {
+        size_t last_space = cmd.rfind(' ');
+        if (last_space == std::string::npos) return 0.0;
+        std::string val = cmd.substr(last_space + 1);
+        if (!val.empty() && val.back() == ')') val.pop_back();
+        try { return std::stod(val); } catch (...) { return 0.0; }
+    }
+
+    std::string formatEnnead(const plingua::rr::EnneadState& e) {
+        std::ostringstream oss;
+        oss << "(:identity-continuity "  << e.identity_continuity
+            << " :skill-readiness "       << e.skill_readiness
+            << " :motivational-valence "  << e.motivational_valence
+            << " :constraint-clarity "    << e.constraint_clarity
+            << " :affordance-density "    << e.affordance_density
+            << " :feedback-latency "      << e.feedback_latency
+            << " :coupling-strength "     << e.coupling_strength
+            << " :reciprocal-shaping "    << e.reciprocal_shaping
+            << " :adaptive-fit "          << e.adaptive_fit
+            << " :balance "               << e.balance() << ")";
+        return oss.str();
+    }
+
+    std::string getEnnead(const std::string& cmd) {
+        if (!rr_hypergraph) return "No RR hypergraph";
+        unsigned nid = parseNodeId(cmd);
+        if (nid == 0 || !rr_hypergraph->nodes.count(nid)) return "Node not found";
+        return formatEnnead(rr_hypergraph->nodes.at(nid)->ennead);
+    }
+
+    std::string getGripIndex(const std::string& cmd) {
+        if (!rr_hypergraph) return "No RR hypergraph";
+        unsigned nid = parseNodeId(cmd);
+        if (nid == 0 || !rr_hypergraph->nodes.count(nid)) return "Node not found";
+        return std::to_string(rr_hypergraph->nodes.at(nid)->grip_index);
+    }
+
+    std::string getSystemEnnead() {
+        if (!rr_hypergraph) return "No RR hypergraph";
+        return formatEnnead(rr_hypergraph->system_ennead);
+    }
+
+    std::string getGlobalMetrics() {
+        if (!rr_hypergraph) return "No RR hypergraph";
+        std::ostringstream oss;
+        oss << "(:relevance-gradient " << rr_hypergraph->relevance_gradient
+            << " :ennead-balance "     << rr_hypergraph->ennead_balance
+            << " :grip-stability "     << rr_hypergraph->grip_stability
+            << " :emergence-score "    << rr_hypergraph->emergence_score
+            << " :converged "          << (rr_hypergraph->hasConverged() ? "#t" : "#f")
+            << ")";
+        return oss.str();
+    }
+
+    std::string setGripThreshold(const std::string& cmd) {
+        if (!rr_hypergraph) return "No RR hypergraph";
+        double v = parseValueArg(cmd);
+        if (v < 0.0 || v > 1.0) return "Value out of range [0,1]";
+        rr_hypergraph->grip_threshold = v;
+        return "grip_threshold set to " + std::to_string(v);
+    }
+
+    std::string setEmergenceSensitivity(const std::string& cmd) {
+        if (!rr_hypergraph) return "No RR hypergraph";
+        double v = parseValueArg(cmd);
+        if (v < 0.0 || v > 1.0) return "Value out of range [0,1]";
+        rr_hypergraph->emergence_sensitivity = v;
+        return "emergence_sensitivity set to " + std::to_string(v);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 };
 
 }} // namespace plingua::scheme

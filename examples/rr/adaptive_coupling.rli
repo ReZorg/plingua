@@ -1,0 +1,63 @@
+/*
+ * adaptive_coupling.rli
+ *
+ * R-Lingua model demonstrating adaptive agent-arena coupling with two arenas.
+ * The agent alternates relevance realisation between a primary and secondary
+ * arena, illustrating grip_index improvement over time.
+ *
+ * Run:
+ *   rlingua adaptive_coupling.rli -s 200 -v -o adaptive_report.json
+ */
+
+@rmodel<relevance_realization>
+
+/* ─── Ennead: agent starts skill-ready but low in coupling ─────────────── */
+@ennead {
+    @triad_a {
+        identity_continuity  = 0.8;
+        skill_readiness      = 0.9;
+        motivational_valence = 0.7;
+    }
+    @triad_b {
+        constraint_clarity = 0.4;
+        affordance_density = 0.8;
+        feedback_latency   = 0.5;
+    }
+    @triad_c {
+        coupling_strength  = 0.4;   /* starts low — will grow */
+        reciprocal_shaping = 0.3;
+        adaptive_fit       = 0.4;
+    }
+}
+
+/* ─── Constraints ───────────────────────────────────────────────────────── */
+@constraints {
+    grip_threshold        = 0.25;
+    emergence_sensitivity = 0.70;
+    convergence_window    = 80;
+    affordance_decay      = 0.005;
+    salience_threshold    = 0.05;
+}
+
+/* ─── Main system ───────────────────────────────────────────────────────── */
+def main() {
+    /* Agent */
+    @agent id=forager  label="forager_agent"    salience=0.85  affordance=1.5;
+
+    /* Two arenas with different affordance densities */
+    @arena id=forest   label="forest_arena"     salience=0.70  affordance=1.8;
+    @arena id=plain    label="plain_arena"      salience=0.50  affordance=0.9;
+
+    /* Primary coupling: forager ↔ forest (strong, bidirectional) */
+    /* Secondary coupling: forager → plain (weaker, unidirectional) */
+    @coupling {
+        forager <-> forest :: co_constitution strength=0.8;
+        forager ->  plain  :: application     strength=0.4;
+    }
+}
+
+/* ─── Observability ─────────────────────────────────────────────────────── */
+@observe {
+    sample_period = 20;
+    report_fields = grip_index, ennead_balance, emergence_score, relevance_gradient;
+}

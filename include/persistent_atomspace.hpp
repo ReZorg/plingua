@@ -113,14 +113,29 @@ public:
             file << "      \"salience\": " << node->salience << ",\n";
             file << "      \"affordance_potential\": " << node->affordance_potential << ",\n";
             file << "      \"affordance_realization\": " << node->affordance_realization << ",\n";
+            file << "      \"coherence\": " << node->coherence << ",\n";
+            file << "      \"grip_index\": " << node->grip_index << ",\n";
             file << "      \"trialectic_state\": [";
             
             for (size_t i = 0; i < node->trialectic_state.size(); ++i) {
                 if (i > 0) file << ", ";
                 file << node->trialectic_state[i];
             }
-            
-            file << "]\n";
+
+            file << "],\n";
+            // Persist ennead state
+            const auto& en = node->ennead;
+            file << "      \"ennead\": {\n";
+            file << "        \"identity_continuity\": "  << en.identity_continuity  << ",\n";
+            file << "        \"skill_readiness\": "       << en.skill_readiness       << ",\n";
+            file << "        \"motivational_valence\": "  << en.motivational_valence  << ",\n";
+            file << "        \"constraint_clarity\": "    << en.constraint_clarity    << ",\n";
+            file << "        \"affordance_density\": "    << en.affordance_density    << ",\n";
+            file << "        \"feedback_latency\": "      << en.feedback_latency      << ",\n";
+            file << "        \"coupling_strength\": "     << en.coupling_strength     << ",\n";
+            file << "        \"reciprocal_shaping\": "    << en.reciprocal_shaping    << ",\n";
+            file << "        \"adaptive_fit\": "          << en.adaptive_fit          << "\n";
+            file << "      }\n";
             file << "    }";
             first = false;
         }
@@ -145,6 +160,27 @@ public:
         }
         
         file << "\n  ],\n";
+
+        // Persist system-level ennead and global metrics
+        const auto& se = hypergraph->system_ennead;
+        file << "  \"system_ennead\": {\n";
+        file << "    \"identity_continuity\": "  << se.identity_continuity  << ",\n";
+        file << "    \"skill_readiness\": "       << se.skill_readiness       << ",\n";
+        file << "    \"motivational_valence\": "  << se.motivational_valence  << ",\n";
+        file << "    \"constraint_clarity\": "    << se.constraint_clarity    << ",\n";
+        file << "    \"affordance_density\": "    << se.affordance_density    << ",\n";
+        file << "    \"feedback_latency\": "      << se.feedback_latency      << ",\n";
+        file << "    \"coupling_strength\": "     << se.coupling_strength     << ",\n";
+        file << "    \"reciprocal_shaping\": "    << se.reciprocal_shaping    << ",\n";
+        file << "    \"adaptive_fit\": "          << se.adaptive_fit          << "\n";
+        file << "  },\n";
+        file << "  \"global_metrics\": {\n";
+        file << "    \"relevance_gradient\": " << hypergraph->relevance_gradient << ",\n";
+        file << "    \"ennead_balance\": "      << hypergraph->ennead_balance      << ",\n";
+        file << "    \"grip_stability\": "      << hypergraph->grip_stability      << ",\n";
+        file << "    \"emergence_score\": "     << hypergraph->emergence_score     << "\n";
+        file << "  },\n";
+
         file << "  \"next_node_id\": " << hypergraph->next_node_id << ",\n";
         file << "  \"next_edge_id\": " << hypergraph->next_edge_id << "\n";
         file << "}\n";

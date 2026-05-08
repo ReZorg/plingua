@@ -31,10 +31,67 @@ jobs:
       - name: Build (grammar + compiler + simulator)
         run: make grammar && make compiler && make simulator
 
+      - name: Build R-Lingua compiler and extension tests
+        run: make rcompiler && make bin/test_rlingua && make bin/test_e2e
+
       - name: Verify binaries
         run: |
-          test -f bin/plingua && echo "plingua built OK"
-          test -f bin/psim    && echo "psim built OK"
+          test -f bin/plingua  && echo "plingua built OK"
+          test -f bin/psim     && echo "psim built OK"
+          test -f bin/rlingua  && echo "rlingua built OK"
+
+      # ─────────────────────────────────────────────────────────────────────
+      # R-Lingua unit + integration tests
+      # ─────────────────────────────────────────────────────────────────────
+      - name: R-Lingua unit and integration tests
+        run: |
+          set -euo pipefail
+          echo "Running R-Lingua tests..."
+          ./bin/test_rlingua
+          echo "Running existing RR E2E tests..."
+          ./bin/test_e2e
+
+      # ─────────────────────────────────────────────────────────────────────
+      # R-Lingua E2E tests – compile .rli examples with the rlingua binary
+      # ─────────────────────────────────────────────────────────────────────
+      - name: R-Lingua E2E tests – compile .rli examples
+        run: |
+          set -euo pipefail
+          RLINGUA="$GITHUB_WORKSPACE/bin/rlingua"
+          EXAMPLES="$GITHUB_WORKSPACE/examples/rr"
+
+          RLI_PROGRAMS=(
+            minimal_ennead.rli
+            adaptive_coupling.rli
+            convergence_benchmark.rli
+          )
+
+          PASS=0
+          FAIL=0
+
+          for prog in "${RLI_PROGRAMS[@]}"; do
+            outfile="/tmp/${prog%.rli}_report.json"
+            echo -n "  rlingua $prog (50 steps) ... "
+            if "$RLINGUA" "$EXAMPLES/$prog" -s 50 -o "$outfile" \
+                 > /tmp/rlingua_out.txt 2>&1; then
+              if [ -s "$outfile" ]; then
+                echo "PASS"
+                PASS=$((PASS+1))
+              else
+                echo "FAIL (empty output)"
+                cat /tmp/rlingua_out.txt
+                FAIL=$((FAIL+1))
+              fi
+            else
+              echo "FAIL (exit code $?)"
+              cat /tmp/rlingua_out.txt
+              FAIL=$((FAIL+1))
+            fi
+          done
+
+          echo ""
+          echo "R-Lingua E2E tests: ${PASS} passed, ${FAIL} failed"
+          [ "$FAIL" -eq 0 ] || exit 1
 
       # ─────────────────────────────────────────────────────────────────────
       # Unit tests – compile every standalone .pli example to every format

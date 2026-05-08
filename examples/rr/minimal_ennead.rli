@@ -1,0 +1,54 @@
+/*
+ * minimal_ennead.rli
+ *
+ * Minimal R-Lingua model demonstrating the trielectic ennead architecture.
+ * A single agent-arena pair with balanced ennead initialisation.
+ *
+ * Run:
+ *   rlingua minimal_ennead.rli -s 50 -v -o minimal_report.json
+ */
+
+@rmodel<relevance_realization>
+
+/* ─── Ennead initialisation ─────────────────────────────────────────────── */
+@ennead {
+    @triad_a {
+        identity_continuity  = 0.7;
+        skill_readiness      = 0.6;
+        motivational_valence = 0.8;
+    }
+    @triad_b {
+        constraint_clarity = 0.5;
+        affordance_density = 0.9;
+        feedback_latency   = 0.3;
+    }
+    @triad_c {
+        coupling_strength  = 0.7;
+        reciprocal_shaping = 0.6;
+        adaptive_fit       = 0.5;
+    }
+}
+
+/* ─── Constraints ───────────────────────────────────────────────────────── */
+@constraints {
+    grip_threshold        = 0.3;
+    emergence_sensitivity = 0.75;
+    convergence_window    = 50;
+    affordance_decay      = 0.01;
+}
+
+/* ─── Main system ───────────────────────────────────────────────────────── */
+def main() {
+    @agent id=a1  label="agent"   salience=0.8  affordance=1.0;
+    @arena id=e1  label="arena"   salience=0.6  affordance=1.2;
+
+    @coupling {
+        a1 <-> e1 :: co_constitution strength=0.8;
+    }
+}
+
+/* ─── Observability ─────────────────────────────────────────────────────── */
+@observe {
+    sample_period = 10;
+    report_fields = grip_index, ennead_balance, relevance_gradient;
+}

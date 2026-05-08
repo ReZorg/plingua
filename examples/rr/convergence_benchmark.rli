@@ -1,0 +1,66 @@
+/*
+ * convergence_benchmark.rli
+ *
+ * R-Lingua convergence and stability benchmark.
+ * Uses a highly-balanced ennead starting state and tight constraints to
+ * demonstrate fast convergence (grip_stability < 0.01 and ennead_balance > 0.8).
+ *
+ * Expected: converges within ~100 steps.
+ *
+ * Run:
+ *   rlingua convergence_benchmark.rli -s 200 -v -o convergence_report.json
+ */
+
+@rmodel<relevance_realization>
+
+/* ─── Ennead: well-balanced starting state ──────────────────────────────── */
+@ennead {
+    @triad_a {
+        identity_continuity  = 0.75;
+        skill_readiness      = 0.75;
+        motivational_valence = 0.75;
+    }
+    @triad_b {
+        constraint_clarity = 0.75;
+        affordance_density = 0.75;
+        feedback_latency   = 0.25;   /* low latency = fast feedback */
+    }
+    @triad_c {
+        coupling_strength  = 0.80;
+        reciprocal_shaping = 0.80;
+        adaptive_fit       = 0.80;
+    }
+}
+
+/* ─── Tight convergence constraints ─────────────────────────────────────── */
+@constraints {
+    grip_threshold        = 0.4;
+    emergence_sensitivity = 0.65;
+    convergence_window    = 50;
+    affordance_decay      = 0.002;   /* minimal decay */
+    salience_threshold    = 0.03;
+}
+
+/* ─── System ─────────────────────────────────────────────────────────────── */
+def main() {
+    /* Two agents, two arenas — symmetric coupling for rapid balance */
+    @agent id=a1 label="agent_alpha"  salience=0.80 affordance=1.2;
+    @agent id=a2 label="agent_beta"   salience=0.80 affordance=1.2;
+    @arena id=e1 label="arena_alpha"  salience=0.75 affordance=1.4;
+    @arena id=e2 label="arena_beta"   salience=0.75 affordance=1.4;
+
+    @coupling {
+        a1 <-> e1 :: co_constitution strength=0.85;
+        a1 <-> e2 :: co_constitution strength=0.60;
+        a2 <-> e1 :: co_constitution strength=0.60;
+        a2 <-> e2 :: co_constitution strength=0.85;
+        /* cross-agent coupling for mutual reinforcement */
+        a1 <-> a2 :: co_constitution strength=0.50;
+    }
+}
+
+/* ─── Observability ─────────────────────────────────────────────────────── */
+@observe {
+    sample_period = 10;
+    report_fields = grip_index, ennead_balance, grip_stability, relevance_gradient, emergence_score;
+}
