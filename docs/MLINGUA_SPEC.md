@@ -145,3 +145,4 @@ in the Cytos/Unity visualization engine, or simulated directly by `msim`.
 - `@msystem<tissue_morphogenetic>` — Tissue-like M system with graph topology
 - `@model<transition>` — Standard P-Lingua transition (backward compatible)
 - `@model<probabilistic>` — Standard P-Lingua probabilistic (backward compatible)
+
