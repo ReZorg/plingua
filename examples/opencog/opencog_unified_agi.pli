@@ -1,0 +1,465 @@
+/*
+ * opencog_unified_agi.pli
+ *
+ * Unified OpenCog AGI Model – Pure P-Lingua Implementation
+ * ═══════════════════════════════════════════════════════════
+ *
+ * This file integrates all OpenCog component subsystems into a single
+ * coherent Relevance-Realization P-system that constitutes a full
+ * AGI architecture expressed exclusively in P-Lingua membrane computing.
+ *
+ * Component subsystems integrated
+ * ─────────────────────────────────
+ *   1. AtomSpace        – hypergraph knowledge representation
+ *   2. PLN              – probabilistic logic networks (inference)
+ *   3. ECAN             – economic attention networks (attention allocation)
+ *   4. MOSES            – meta-optimising evolutionary search (learning)
+ *   5. OpenPsi          – motivational / goal / action system
+ *   6. RR Architecture  – relevance realization (meta-cognitive frame)
+ *
+ * Unified Membrane Hierarchy
+ * ──────────────────────────
+ *   Membrane  0  : Environment (world, sensors, actuators)
+ *   Membrane  1  : AGI Root  ← outer skin of the cognitive agent
+ *   Membrane  2  : Perception layer
+ *   Membrane  3  : AtomSpace core
+ *   Membrane  4  : ECAN attention layer
+ *   Membrane  5  : PLN inference layer
+ *   Membrane  6  : MOSES learning layer
+ *   Membrane  7  : OpenPsi motivational layer
+ *   Membrane  8  : Action/Output layer
+ *   Membrane  9  : Meta-Cognitive RR layer (trialectic dynamics)
+ *   Membrane 10  : Global workspace / broadcast membrane
+ *
+ * Cross-layer interaction signals
+ * ────────────────────────────────
+ *   percept          – raw sensory datum from environment
+ *   concept_formed   – AtomSpace atom created from percept
+ *   attention_up     – ECAN raised attention on an atom
+ *   inference_result – PLN produced a new conclusion
+ *   program_learned  – MOSES found a new useful program
+ *   goal_active      – OpenPsi activated a goal
+ *   action_out       – agent action sent to environment
+ *   rr_update        – RR salience / affordance update
+ *   gw_broadcast     – global-workspace broadcast (cross-layer)
+ *   coherence_high   – trialectic coherence above threshold
+ *   coherence_low    – trialectic coherence below threshold
+ *   agi_step_done    – one full AGI cognitive step complete
+ */
+
+@model<opencog_unified_agi>
+
+@include "opencog_atomspace.pli"
+@include "opencog_pln.pli"
+@include "opencog_ecan.pli"
+@include "opencog_moses.pli"
+@include "opencog_openpsi.pli"
+@include "rr_triadic_model.pli"
+
+@Θ-system unified_opencog_agi {
+
+    /* ── Affordance space ──────────────────────────────────────────────── */
+    @affordances = {
+        /* Perception */
+        (percept, concept_formed),
+
+        /* AtomSpace */
+        (atom_added, atom_updated, atom_removed,
+         tv_high, tv_medium, tv_low,
+         conf_high, conf_low,
+         sti_high, sti_low, lti_high, lti_low),
+
+        /* PLN */
+        (premise_a, premise_b, conclusion,
+         tv_strong, tv_weak,
+         inference_result, chain_fwd, chain_bwd),
+
+        /* ECAN */
+        (af_member, af_border, spread_token,
+         bank_credit, rent_token, wage_token,
+         co_activation, link_weight, attention_up),
+
+        /* MOSES */
+        (feature, program, fitness_high, fitness_low,
+         best_program, program_learned),
+
+        /* OpenPsi */
+        (demand_energy, demand_food, demand_social,
+         goal_active, goal_achieved, action_token,
+         action_out, satisfaction, emotion_joy, emotion_fear),
+
+        /* RR layer */
+        (rr_salience_high, rr_salience_low, rr_affordance, rr_update,
+         coherence_high, coherence_low),
+
+        /* Global workspace */
+        (gw_broadcast, agi_step_done)
+    };
+
+    /* ── Agent-Arena boundary ─────────────────────────────────────────── */
+    @agent_arena unified_agi_core {
+
+        /* ══════════════════════════════════════════════════════════════
+         * Membrane 2 – Perception Layer
+         * Converts raw environment signals into AtomSpace atoms.
+         * ══════════════════════════════════════════════════════════════ */
+        @lambda[2] 'perception_layer {
+
+            percept{3};
+
+            /* Raw percept → ConceptNode in AtomSpace */
+            [percept -> concept_formed, atom_added, tv_medium]'perception_layer;
+
+            /* Novel percept gets higher attention */
+            [percept, percept -> concept_formed, atom_added, sti_high]'perception_layer;
+
+            /* Familiar pattern (repeated percept) updates existing atom */
+            [concept_formed, percept -> atom_updated, tv_high]'perception_layer;
+
+            /* Percept stream flows into ECAN for attention allocation */
+            [percept, atom_added -> spread_token, attention_up]'perception_layer;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+         * Membrane 3 – AtomSpace Core
+         * Persistent hypergraph knowledge store.
+         * (Detailed rules defined in opencog_atomspace.pli)
+         * ══════════════════════════════════════════════════════════════ */
+        @lambda[3] 'atomspace_layer {
+
+            /* Bridge from perception layer */
+            concept_formed{2}, atom_added{2}, tv_medium{3};
+
+            /* AtomSpace stores incoming percepts as concepts */
+            [concept_formed, atom_added, tv_medium
+             -> concept_formed, tv_high, conf_high]'atomspace_layer;
+
+            /* Updated atoms notify PLN */
+            [atom_updated, tv_high -> premise_a, tv_strong]'atomspace_layer;
+
+            /* New atoms with high STI broadcast to global workspace */
+            [sti_high, atom_added -> gw_broadcast, concept_formed]'atomspace_layer;
+
+            /* ECAN rent collection passes through atomspace layer */
+            [sti_low, lti_low -> atom_removed]'atomspace_layer;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+         * Membrane 4 – ECAN Attention Layer
+         * Allocates cognitive resources via STI/LTI economics.
+         * (Detailed rules defined in opencog_ecan.pli)
+         * ══════════════════════════════════════════════════════════════ */
+        @lambda[4] 'ecan_layer {
+
+            /* Bridge from AtomSpace */
+            sti_high{2}, af_member{1}, spread_token{1};
+
+            /* AF membership promotes atoms for PLN reasoning */
+            [af_member, sti_high -> premise_a, spread_token]'ecan_layer;
+
+            /* STI spreading from high-attention atoms */
+            [sti_high, spread_token -> sti_high, sti_high, spread_token]'ecan_layer;
+
+            /* Hebbian co-activation strengthens associative links */
+            [sti_high, sti_high -> co_activation, link_weight]'ecan_layer;
+
+            /* Wages paid to atoms that produced inference conclusions */
+            [inference_result, bank_credit -> sti_high, wage_token]'ecan_layer;
+
+            /* Notify RR of attention focus changes */
+            [af_member -> rr_salience_high, attention_up]'ecan_layer;
+            [af_border -> rr_salience_low]'ecan_layer;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+         * Membrane 5 – PLN Inference Layer
+         * Probabilistic reasoning over the AtomSpace.
+         * (Detailed rules defined in opencog_pln.pli)
+         * ══════════════════════════════════════════════════════════════ */
+        @lambda[5] 'pln_layer {
+
+            /* Bridge from ECAN */
+            premise_a{2}, tv_strong{1};
+
+            /* Forward chaining: derive new conclusions */
+            [premise_a, premise_b, tv_strong, tv_strong
+             -> conclusion, tv_strong, inference_result]'pln_layer;
+
+            /* Backward chaining: goal-directed reasoning */
+            [goal_active, premise_a, tv_strong
+             -> conclusion, tv_strong, inference_result]'pln_layer;
+
+            /* Weak inference still produces conclusions, lower confidence */
+            [premise_a, tv_weak
+             -> conclusion, tv_weak, inference_result]'pln_layer;
+
+            /* Inference result broadcasts to global workspace */
+            [inference_result, tv_strong -> gw_broadcast, inference_result]'pln_layer;
+
+            /* Notify MOSES of learnable patterns */
+            [inference_result, conclusion -> feature, program]'pln_layer;
+
+            /* PLN conclusion feeds back as new AtomSpace atom */
+            [conclusion, tv_strong -> atom_added, concept_formed]'pln_layer;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+         * Membrane 6 – MOSES Learning Layer
+         * Evolutionary program search guided by RR salience.
+         * (Detailed rules defined in opencog_moses.pli)
+         * ══════════════════════════════════════════════════════════════ */
+        @lambda[6] 'moses_layer {
+
+            /* Bridge from PLN */
+            feature{3}, program{1};
+
+            /* Learn programs from PLN-derived features */
+            [feature, feature, inference_result
+             -> program, fitness_high]'moses_layer;
+
+            /* High-fitness program stored back in AtomSpace */
+            [best_program, fitness_high -> atom_added, program_learned]'moses_layer;
+
+            /* Learned program broadcasts to global workspace */
+            [program_learned -> gw_broadcast, program_learned]'moses_layer;
+
+            /* Failed learning signals need for new features */
+            [fitness_low, fitness_low -> rr_salience_low]'moses_layer;
+
+            /* Successful learning boosts RR salience */
+            [best_program -> rr_salience_high]'moses_layer;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+         * Membrane 7 – OpenPsi Motivational Layer
+         * Drive / goal / action selection.
+         * (Detailed rules defined in opencog_openpsi.pli)
+         * ══════════════════════════════════════════════════════════════ */
+        @lambda[7] 'openpsi_layer {
+
+            /* Bridge from global workspace */
+            demand_energy{3}, demand_social{2};
+
+            /* Active demand triggers goal selection */
+            [demand_energy{5} -> goal_active, rr_salience_high]'openpsi_layer;
+            [demand_social{4} -> goal_active]'openpsi_layer;
+
+            /* Goal activates action selection */
+            [goal_active, inference_result -> action_token]'openpsi_layer;
+            [goal_active, program_learned  -> action_token]'openpsi_layer;
+
+            /* Precondition met → action executes */
+            [action_token, rr_affordance -> action_out]'openpsi_layer;
+
+            /* Action execution sends signal to output layer */
+            [action_out -> action_out, @d]'openpsi_layer;
+
+            /* Successful action → satisfaction → goal achieved */
+            [action_out, satisfaction -> goal_achieved, emotion_joy]'openpsi_layer;
+
+            /* Goal achieved feeds back to RR */
+            [goal_achieved -> rr_salience_high, rr_affordance]'openpsi_layer;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+         * Membrane 8 – Action / Output Layer
+         * Maps internal decisions to world-facing actions.
+         * ══════════════════════════════════════════════════════════════ */
+        @lambda[8] 'action_layer {
+
+            action_out{1};
+
+            /* Action executed in environment produces percepts next step */
+            [action_out -> percept, satisfaction{2}]'action_layer;
+
+            /* Emotional state informs next perception weighting */
+            [action_out, emotion_joy -> percept, sti_high]'action_layer;
+            [action_out, emotion_fear -> percept, spread_token]'action_layer;
+
+            /* Mark AGI cognitive step complete */
+            [action_out, satisfaction -> agi_step_done]'action_layer;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+         * Membrane 9 – Meta-Cognitive RR Layer
+         * Trialectic relevance-realization dynamics that modulate
+         * all other layers (Vervaeke's agent-arena co-constitution).
+         * ══════════════════════════════════════════════════════════════ */
+        @lambda[9] 'rr_meta_layer {
+
+            rr_salience_low{4}, rr_affordance{2};
+
+            /*
+             * Trialectic update: salience × affordance → coherence
+             * ∀^ω(agent ⇔^α arena ⇔^α relation ⇔^α agent)
+             */
+            [rr_salience_high, rr_affordance
+             -> coherence_high, rr_update]'rr_meta_layer;
+
+            [rr_salience_low, rr_affordance
+             -> coherence_low, rr_update]'rr_meta_layer;
+
+            /* High coherence boosts ECAN attention */
+            [coherence_high -> sti_high, af_member, spread_token]'rr_meta_layer;
+
+            /* High coherence promotes PLN forward chaining */
+            [coherence_high -> chain_fwd]'rr_meta_layer;
+
+            /* Low coherence triggers backward-chaining (goal-directed) */
+            [coherence_low  -> chain_bwd, goal_active]'rr_meta_layer;
+
+            /* RR update informs MOSES feature weighting */
+            [rr_update, coherence_high -> feature{3}]'rr_meta_layer;
+            [rr_update, coherence_low  -> feature{1}]'rr_meta_layer;
+
+            /* Trialectic co-constitution: Agent ↔ Arena ↔ Relation */
+            [rr_salience_high, rr_salience_high
+             -> rr_salience_high, rr_affordance, coherence_high]'rr_meta_layer;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+         * Membrane 10 – Global Workspace / Broadcast Membrane
+         * Implements Global Workspace Theory: high-salience contents
+         * are broadcast to all cognitive layers simultaneously.
+         * ══════════════════════════════════════════════════════════════ */
+        @lambda[10] 'global_workspace {
+
+            gw_broadcast{2};
+
+            /* Broadcast high-salience inference results to all layers */
+            [gw_broadcast, inference_result
+             -> premise_a, goal_active, feature]'global_workspace;
+
+            /* Broadcast learned programs to all layers */
+            [gw_broadcast, program_learned
+             -> feature, atom_added, action_token]'global_workspace;
+
+            /* Broadcast high-attention atoms to reasoning layers */
+            [gw_broadcast, sti_high
+             -> premise_a, spread_token]'global_workspace;
+
+            /* Completed AGI step resets workspace for next cycle */
+            [agi_step_done -> gw_broadcast{0}]'global_workspace;
+
+            /* Global coherence signal: all layers aligned */
+            [coherence_high, coherence_high, coherence_high
+             -> gw_broadcast, rr_salience_high]'global_workspace;
+        }
+
+    } /* end agent_arena unified_agi_core */
+
+    /* ── Multi-level emergence operators ─────────────────────────────── */
+
+    /* Level 1→2: Perception gives rise to symbolic knowledge */
+    @emergence perception_to_knowledge : Λ_percept × Λ_atomspace --> Λ_knowledge {
+        when concept_formed && tv_high && conf_high:
+            dissolve(Λ_percept, Λ_atomspace)
+                --> parent(Λ_knowledge) × atom_updated × sti_high;
+    }
+
+    /* Level 2→3: Knowledge gives rise to inference */
+    @emergence knowledge_to_inference : Λ_atomspace × Λ_pln --> Λ_reasoning {
+        when tv_high && conf_high && af_member:
+            dissolve(Λ_atomspace, Λ_pln)
+                --> parent(Λ_reasoning) × inference_result × rr_salience_high;
+    }
+
+    /* Level 3→4: Inference gives rise to learning */
+    @emergence inference_to_learning : Λ_pln × Λ_moses --> Λ_learning {
+        when inference_result && fitness_high:
+            dissolve(Λ_pln, Λ_moses)
+                --> parent(Λ_learning) × program_learned × rr_salience_high;
+    }
+
+    /* Level 4→5: Learning gives rise to motivated goal-pursuit */
+    @emergence learning_to_motivation : Λ_moses × Λ_openpsi --> Λ_agency {
+        when program_learned && goal_active && satisfaction:
+            dissolve(Λ_moses, Λ_openpsi)
+                --> parent(Λ_agency) × goal_achieved × emotion_joy;
+    }
+
+    /* Level 5→6: Agency gives rise to meta-cognitive coherence (RR) */
+    @emergence agency_to_metacognition : Λ_openpsi × Λ_rr --> Λ_metacognition {
+        when goal_achieved && coherence_high && rr_salience_high:
+            dissolve(Λ_openpsi, Λ_rr)
+                --> parent(Λ_metacognition) × agi_step_done × rr_update;
+    }
+
+    /* ── Global constraints ───────────────────────────────────────────── */
+    @constraints {
+        /* AtomSpace constraints */
+        κ_atom_unique      : ∀ a,b ∈ atoms: identical(a,b) → a = b;
+        κ_tv_range         : ∀ tv: strength(tv) ∈ [0,1] ∧ confidence(tv) ∈ [0,1];
+
+        /* ECAN constraints */
+        κ_sti_conservation : Σ(sti_all_atoms) + bank_credits = CONST;
+        κ_af_bounded       : |attentional_focus| ≤ max_af;
+
+        /* PLN constraints */
+        κ_pln_soundness    : ∀ conclusion: derived_from(conclusion, valid_premises);
+
+        /* MOSES constraints */
+        κ_fitness_bounded  : fitness ∈ [-∞, 0];
+        κ_program_depth    : depth(program) ≤ max_depth;
+
+        /* OpenPsi constraints */
+        κ_demand_bounded   : ∀ demand: demand ∈ [0, max_demand];
+        κ_single_action    : |executing_actions| ≤ 1;
+
+        /* RR constraints */
+        κ_trialectic_coherence : coherence = Σᵢ(sᵢ · sᵢ₊₁) / |states|;
+        κ_relevance_gradient   : ∇ℜ = Σᵢ log(affordance_i / potential_i);
+
+        /* Global AGI constraint */
+        κ_cognitive_cycle  : ∀ step: duration(step) ≤ max_cycle_time;
+        κ_resource_bounded : total_compute ≤ available_compute;
+    }
+
+} /* end Θ-system unified_opencog_agi */
+
+/* ── Execution semantics ──────────────────────────────────────────────── */
+@execution_mode max_parallel_agi {
+    /* Each cognitive step runs all layers in maximally parallel fashion */
+    ∀ layer ∈ {perception, atomspace, ecan, pln, moses, openpsi, action, rr, gw}:
+        apply_all_applicable_rules(layer);
+        synchronise_cross_layer_signals();
+        update_rr_dynamics(layer);
+        broadcast_high_salience_contents();
+}
+
+/* ── Unified AGI relevance gradient ──────────────────────────────────── */
+@compute_relevance {
+    /*
+     * The unified relevance gradient integrates contributions from
+     * all subsystems, weighted by their current salience:
+     *
+     *   ∇ℜ_agi = w₁·∇ℜ_atomspace
+     *           + w₂·∇ℜ_pln
+     *           + w₃·∇ℜ_ecan
+     *           + w₄·∇ℜ_moses
+     *           + w₅·∇ℜ_openpsi
+     *
+     * with weights w₁…w₅ determined by the RR trialectic dynamics.
+     */
+    ∇ℜ_atomspace  = Σ(tv_high ∧ conf_high) / |atoms|;
+    ∇ℜ_pln        = Σ(conclusions_tv_strong) / |active_premises|;
+    ∇ℜ_ecan       = Σ(af_member) / |atoms| + 0.3·Σ(lti_high) / |atoms|;
+    ∇ℜ_moses      = fitness(best_program) / max_fitness;
+    ∇ℜ_openpsi    = Σ(satisfaction) / Σ(demand);
+
+    ∇ℜ_agi = 0.20·∇ℜ_atomspace
+            + 0.25·∇ℜ_pln
+            + 0.20·∇ℜ_ecan
+            + 0.20·∇ℜ_moses
+            + 0.15·∇ℜ_openpsi;
+
+    /*
+     * Trialectic coherence amplification factor (0.3):
+     * Chosen so that a fully coherent system (coherence_high = 1) yields a
+     * 30% boost to the unified gradient, reflecting the RR principle that
+     * agent-arena co-constitution multiplies effective relevance without
+     * dominating the base gradient contributions from individual subsystems.
+     */
+    @coherence_amplification = 0.3;
+    ∇ℜ_unified = ∇ℜ_agi × (1 + @coherence_amplification·coherence_high);
+}

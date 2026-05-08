@@ -1,0 +1,14 @@
+!relevance_realization_triadic /* Enhanced RR pattern with triadic support */
+{
+    /* Basic RR evolution rules */
+    [u -> v]'h;
+    [u -> v, @d]'h;
+    
+    /* Triadic co-constitution rules */
+    [x, y, z -> x2, y2, z2]'triad;
+    
+    /* Agent-Arena interaction rules */
+    [agent, arena -> agent2, arena2]'coupling;
+}
+
+@model(relevance_realization) = relevance_realization_triadic;

@@ -1,0 +1,298 @@
+/*
+ * opencog_openpsi.pli
+ *
+ * OpenPsi (Open Psychological-Sigma) implemented as a pure P-Lingua
+ * membrane computing system integrated into the relevance-realization (RR)
+ * architecture.
+ *
+ * OpenPsi is OpenCog's motivational and action-selection system.  Inspired
+ * by Dietrich Dörner's Psi theory, it models an agent's internal drives,
+ * goals, and modulators that govern behaviour selection.
+ *
+ * OpenPsi mechanisms modelled
+ * ────────────────────────────
+ *   1. Demand system          – built-in drives (competence, integrity, etc.)
+ *   2. Goal hierarchy         – structured goal-subgoal relationships
+ *   3. Modulator system       – affect modulators (activation, resolution, etc.)
+ *   4. Action selection       – choose action that best satisfies current demands
+ *   5. Precondition checking  – verify context before action execution
+ *   6. Satisfaction update    – update demand after successful action
+ *   7. Emotional state        – composite affect from modulators
+ *   8. RR-OpenPsi bridge      – salience guides demand urgency
+ *
+ * Membrane mapping
+ * ────────────────
+ *   Membrane 0  : External world / action results
+ *   Membrane 1  : OpenPsi root (motivational system)
+ *   Membrane 2  : Demand membrane
+ *   Membrane 3  : Goal membrane (goal hierarchy)
+ *   Membrane 4  : Modulator membrane
+ *   Membrane 5  : Action-selection membrane
+ *   Membrane 6  : Precondition-checking membrane
+ *   Membrane 7  : Satisfaction-update membrane
+ *   Membrane 8  : Emotional-state membrane
+ *   Membrane 9  : RR-OpenPsi bridge
+ *
+ * Objects
+ * ───────
+ *   demand_energy{n}     – energy demand level (survival, competence, …)
+ *   demand_food{n}       – food/resource demand
+ *   demand_social{n}     – social interaction demand
+ *   demand_integrity{n}  – integrity/consistency demand
+ *   goal_active          – currently pursued goal token
+ *   goal_achieved        – successfully completed goal
+ *   goal_failed          – failed goal
+ *   sub_goal             – decomposed sub-goal token
+ *   action_token         – pending action
+ *   action_done          – executed action signal
+ *   precond_met          – precondition satisfied
+ *   precond_failed       – precondition not met
+ *   satisfaction{n}      – demand satisfaction units
+ *   mod_activation{n}    – activation modulator level
+ *   mod_resolution{n}    – resolution modulator level
+ *   mod_selection{n}     – selection threshold modulator
+ *   mod_securing{n}      – securing rate modulator
+ *   emotion_joy          – composite positive affect
+ *   emotion_fear         – composite negative affect
+ *   emotion_boredom      – low-arousal negative affect
+ *   rr_salience_high, rr_salience_low  – RR bridge signals
+ *   rr_affordance        – RR affordance signal
+ */
+
+@model<opencog_openpsi>
+
+@include "opencog_atomspace.pli"
+
+@Θ-system openpsi_motivational_system {
+
+    /* ── Affordance space ──────────────────────────────────────────────── */
+    @affordances = {
+        (demand_energy, demand_food,
+         demand_social, demand_integrity),                   /* drives          */
+        (goal_active, goal_achieved,
+         goal_failed, sub_goal),                             /* goals           */
+        (action_token, action_done),                         /* actions         */
+        (precond_met, precond_failed),                       /* preconditions   */
+        (satisfaction),                                      /* reward          */
+        (mod_activation, mod_resolution,
+         mod_selection, mod_securing),                       /* modulators      */
+        (emotion_joy, emotion_fear, emotion_boredom),        /* affect          */
+        (rr_salience_high, rr_salience_low, rr_affordance)  /* RR interface    */
+    };
+
+    /* ── Agent-Arena boundary ─────────────────────────────────────────── */
+    @agent_arena openpsi_core {
+
+        /* ── Membrane 2: Demand membrane ────────────────────────────── */
+        @lambda[2] 'demand_membrane {
+
+            /* Seed: initial demand levels */
+            demand_energy{5}, demand_food{4}, demand_social{3}, demand_integrity{4};
+
+            /* Demands increase over time if not satisfied */
+            [demand_energy{3} -> demand_energy{4}]'demand_membrane;
+            [demand_food{3}   -> demand_food{4}]'demand_membrane;
+            [demand_social{3} -> demand_social{4}]'demand_membrane;
+
+            /* High demand triggers goal activation */
+            [demand_energy{6} -> goal_active, demand_energy{6}]'demand_membrane;
+            [demand_food{6}   -> goal_active, demand_food{6}]'demand_membrane;
+            [demand_social{5} -> goal_active, demand_social{5}]'demand_membrane;
+
+            /* Satisfaction reduces demand */
+            [demand_energy{5}, satisfaction{3} -> demand_energy{2}]'demand_membrane;
+            [demand_food{4},   satisfaction{2} -> demand_food{2}]'demand_membrane;
+            [demand_social{4}, satisfaction{2} -> demand_social{2}]'demand_membrane;
+
+            /* Integrity demand triggers re-evaluation */
+            [demand_integrity{6} -> goal_active, demand_integrity{6}]'demand_membrane;
+        }
+
+        /* ── Membrane 3: Goal hierarchy ─────────────────────────────── */
+        @lambda[3] 'goal_hierarchy {
+
+            goal_active{2};
+
+            /* Goal decomposition: complex goals → sub-goals */
+            [goal_active -> sub_goal, sub_goal]'goal_hierarchy;
+
+            /* Sub-goal achievement contributes to parent goal */
+            [sub_goal, goal_achieved -> goal_active]'goal_hierarchy;
+
+            /* All sub-goals achieved → parent goal achieved */
+            [goal_achieved, goal_achieved -> goal_achieved, satisfaction{3}]'goal_hierarchy;
+
+            /* Goal failure triggers alternative goal */
+            [goal_failed -> goal_active]'goal_hierarchy;
+
+            /* High salience from RR promotes specific goals */
+            [rr_salience_high, goal_active -> goal_active, sub_goal]'goal_hierarchy;
+
+            /* RR affordance enables goal realisation */
+            [rr_affordance, goal_active -> precond_met, goal_active]'goal_hierarchy;
+        }
+
+        /* ── Membrane 4: Modulator membrane ─────────────────────────── */
+        @lambda[4] 'modulator_membrane {
+
+            /* Seed: initial modulator values */
+            mod_activation{5}, mod_resolution{4}, mod_selection{5}, mod_securing{3};
+
+            /* High activation promotes action selection */
+            [mod_activation{6}, goal_active -> action_token, mod_activation{5}]'modulator_membrane;
+
+            /* Resolution modulator: sharp goals → high resolution */
+            [goal_active, goal_active -> mod_resolution{6}]'modulator_membrane;
+            [mod_resolution{6} -> action_token]'modulator_membrane;
+
+            /* Selection threshold: high value → selective action */
+            [mod_selection{7}, action_token -> action_token]'modulator_membrane;
+            [mod_selection{3}, action_token -> action_token, action_token]'modulator_membrane;
+
+            /* Securing rate: consolidate successful action patterns */
+            [action_done, mod_securing{4} -> mod_securing{5}, satisfaction{1}]'modulator_membrane;
+
+            /* Activation decay when no goals active */
+            [mod_activation{5} -> mod_activation{4}]'modulator_membrane;
+        }
+
+        /* ── Membrane 5: Action-selection membrane ───────────────────── */
+        @lambda[5] 'action_selection {
+
+            action_token{2};
+
+            /* Select action with highest expected satisfaction */
+            [action_token, precond_met, demand_energy{4}
+             -> action_token, action_done]'action_selection;
+
+            [action_token, precond_met, demand_food{4}
+             -> action_token, action_done]'action_selection;
+
+            /* Action selected but precondition not met → postpone */
+            [action_token, precond_failed -> action_token]'action_selection;
+
+            /* Competing actions: highest-demand action wins */
+            [action_token, action_token, demand_energy{6}
+             -> action_token, action_done, demand_energy{5}]'action_selection;
+
+            /* Action execution propagates outward */
+            [action_done -> action_done, @d]'action_selection;
+        }
+
+        /* ── Membrane 6: Precondition-checking ───────────────────────── */
+        @lambda[6] 'precondition_check {
+
+            /*
+             * Check if action context is met before execution
+             * precond_met / precond_failed emitted based on current state
+             */
+            [action_token, rr_affordance -> precond_met, action_token]'precondition_check;
+            [action_token, rr_salience_low -> precond_failed, action_token]'precondition_check;
+
+            /* External context provided by world membrane */
+            [action_token -> precond_met]'precondition_check;
+        }
+
+        /* ── Membrane 7: Satisfaction update ─────────────────────────── */
+        @lambda[7] 'satisfaction_update {
+
+            /* Map action success to demand satisfaction */
+            [action_done, demand_energy{5} -> satisfaction{3}, demand_energy{2}]'satisfaction_update;
+            [action_done, demand_food{5}   -> satisfaction{2}, demand_food{2}]'satisfaction_update;
+            [action_done, demand_social{4} -> satisfaction{2}, demand_social{2}]'satisfaction_update;
+
+            /* High satisfaction triggers goal achievement */
+            [satisfaction{3}, goal_active -> goal_achieved, satisfaction{3}]'satisfaction_update;
+
+            /* Accumulated satisfaction builds long-term well-being */
+            [satisfaction{3}, satisfaction{3} -> satisfaction{5}]'satisfaction_update;
+        }
+
+        /* ── Membrane 8: Emotional state ─────────────────────────────── */
+        @lambda[8] 'emotional_state {
+
+            /* Compute composite affect from modulators and satisfaction */
+            [mod_activation{6}, satisfaction{3}
+             -> emotion_joy]'emotional_state;
+
+            [mod_activation{2}, demand_energy{6}
+             -> emotion_fear]'emotional_state;
+
+            [mod_activation{2}, satisfaction{0}
+             -> emotion_boredom]'emotional_state;
+
+            /* Joy promotes further goal pursuit */
+            [emotion_joy -> mod_activation{6}, rr_salience_high]'emotional_state;
+
+            /* Fear increases urgency of survival goals */
+            [emotion_fear -> demand_energy{6}, rr_salience_high]'emotional_state;
+
+            /* Boredom triggers exploration */
+            [emotion_boredom -> goal_active, rr_salience_low]'emotional_state;
+        }
+
+        /* ── Membrane 9: RR-OpenPsi bridge ────────────────────────────── */
+        @lambda[9] 'rr_openpsi_bridge {
+
+            rr_salience_low{3}, rr_affordance{2};
+
+            /* High RR salience → high activation modulator */
+            [rr_salience_high -> mod_activation{6}]'rr_openpsi_bridge;
+
+            /* High RR affordance → preconditions more likely met */
+            [rr_affordance -> precond_met]'rr_openpsi_bridge;
+
+            /* Low salience → low activation, possible boredom */
+            [rr_salience_low -> mod_activation{2}]'rr_openpsi_bridge;
+
+            /* Successful action feeds RR with realised affordance */
+            [action_done, satisfaction{3}
+             -> rr_salience_high, rr_affordance, @d]'rr_openpsi_bridge;
+
+            /* Emotion states modulate RR salience */
+            [emotion_joy  -> rr_salience_high, @d]'rr_openpsi_bridge;
+            [emotion_fear -> rr_salience_high, @d]'rr_openpsi_bridge;
+        }
+
+    } /* end agent_arena openpsi_core */
+
+    /* ── Emergence: sustained satisfaction produces meta-goal ──────────── */
+    @emergence openpsi_emergence : Λ_demand × Λ_goal --> Λ_openpsi {
+        when satisfaction{5} && goal_achieved && goal_achieved:
+            dissolve(Λ_demand, Λ_goal)
+                --> parent(Λ_openpsi) × rr_salience_high × emotion_joy;
+    }
+
+    /* ── Constraints ─────────────────────────────────────────────────── */
+    @constraints {
+        κ_demand_bounded     : demand ∈ [0, max_demand];
+        κ_satisfaction_range : satisfaction ∈ [0, max_satisfaction];
+        κ_modulator_range    : modulator ∈ [0, 1];
+        κ_action_single      : |active_actions| ≤ 1;
+        κ_goal_consistency   : ∀ active_goal: preconditions_checkable(active_goal);
+        κ_rr_drive_coupling  : demand_urgency ∝ rr_salience;
+    }
+
+} /* end Θ-system openpsi_motivational_system */
+
+/* ── Execution semantics ──────────────────────────────────────────────── */
+@execution_mode max_parallel_openpsi {
+    ∀ demand ∈ active_demands:
+        update_demand_level(demand);
+        select_goal(demand);
+        check_preconditions(selected_goal);
+        select_action(selected_goal);
+        execute_action(selected_action);
+        update_satisfaction(selected_action);
+        update_modulators();
+        update_emotions();
+}
+
+/* ── OpenPsi relevance gradient ──────────────────────────────────────── */
+@compute_relevance {
+    ∇ℜ_openpsi = lim_t(
+        Σ(satisfaction) / Σ(demand) +
+        0.3 * |goals_achieved| / |goals_active| +
+        0.2 * mod_activation / max_activation
+    );
+}

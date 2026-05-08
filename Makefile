@@ -26,7 +26,7 @@ RM=rm
 FLEX=flex
 BISON=bison
 
-all: grammar compiler simulator mcompiler msimulator
+all: grammar compiler simulator mcompiler msimulator extensions
 
 grammar: y.tab.c lex.yy.c
 
@@ -83,6 +83,37 @@ $(BIN_MSIM): $(patsubst %,$(ODIR)/%,$(OBJ_MSIM))
 	@mkdir -p $(ODIR)
 	$(CC) $(CFlags) -I$(IDIR) -o $(ODIR)/$@ $<
 
+# RR/OpenCog extension targets (header-only + standalone demos)
+extensions: $(BDIR)/rr_simple_demo $(BDIR)/rr_demo $(BDIR)/demo_repl $(BDIR)/test_rr_enhanced $(BDIR)/test_next_directions $(BDIR)/test_opencog_integration $(BDIR)/adaptive_foraging
+
+$(BDIR)/rr_simple_demo: examples/rr/rr_simple_demo.cpp
+	@mkdir -p $(BDIR)
+	$(CC) -O3 -Wall -std=gnu++11 -I$(IDIR) -o $@ $<
+
+$(BDIR)/rr_demo: examples/rr/rr_demo.cpp
+	@mkdir -p $(BDIR)
+	$(CC) -O3 -Wall -std=gnu++11 -I$(IDIR) -o $@ $<
+
+$(BDIR)/demo_repl: src/rr/demo_repl.cpp
+	@mkdir -p $(BDIR)
+	$(CC) -O2 -Wall -std=gnu++11 -I$(IDIR) -o $@ $<
+
+$(BDIR)/test_rr_enhanced: src/rr/test_rr_enhanced.cpp
+	@mkdir -p $(BDIR)
+	$(CC) -O2 -Wall -std=gnu++11 -I$(IDIR) -o $@ $<
+
+$(BDIR)/test_next_directions: src/rr/test_next_directions.cpp
+	@mkdir -p $(BDIR)
+	$(CC) -O2 -Wall -std=gnu++11 -I$(IDIR) -o $@ $<
+
+$(BDIR)/test_opencog_integration: src/rr/test_opencog_integration.cpp
+	@mkdir -p $(BDIR)
+	$(CC) -O2 -Wall -std=gnu++11 -I$(IDIR) -o $@ $<
+
+$(BDIR)/adaptive_foraging: examples/rr/adaptive_foraging.cpp
+	@mkdir -p $(BDIR)
+	$(CC) -O3 -Wall -std=gnu++11 -I$(IDIR) -o $@ $<
+
 %.o: $(SDIR)/parser/%.c	
 	@mkdir -p $(ODIR)
 	$(CC) $(CFlags) -I$(IDIR) -o $(ODIR)/$@ $<
@@ -94,7 +125,7 @@ lex.yy.c: $(SDIR)/parser/plingua.l
 	$(FLEX) -o $(SDIR)/parser/$@ $<  
 	
 clean:
-	$(RM) -f $(patsubst %,$(ODIR)/%,$(OBJ_PLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_PSIM)) $(patsubst %,$(ODIR)/%,$(OBJ_MLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_MSIM)) $(BDIR)/$(BIN_PLINGUA) $(BDIR)/$(BIN_PSIM) $(BDIR)/$(BIN_MLINGUA) $(BDIR)/$(BIN_MSIM) $(SDIR)/parser/y.tab.c $(SDIR)/parser/y.tab.h $(SDIR)/parser/lex.yy.c
+	$(RM) -f $(patsubst %,$(ODIR)/%,$(OBJ_PLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_PSIM)) $(patsubst %,$(ODIR)/%,$(OBJ_MLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_MSIM)) $(BDIR)/$(BIN_PLINGUA) $(BDIR)/$(BIN_PSIM) $(BDIR)/$(BIN_MLINGUA) $(BDIR)/$(BIN_MSIM) $(BDIR)/rr_simple_demo $(BDIR)/rr_demo $(BDIR)/demo_repl $(BDIR)/test_rr_enhanced $(BDIR)/test_next_directions $(BDIR)/test_opencog_integration $(BDIR)/adaptive_foraging $(SDIR)/parser/y.tab.c $(SDIR)/parser/y.tab.h $(SDIR)/parser/lex.yy.c
 	
 install:
 	@mkdir -p /usr/local/PLingua/$(BIN_PLINGUA)/
