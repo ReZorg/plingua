@@ -98,7 +98,7 @@ $(BIN_RLINGUA): $(patsubst %,$(ODIR)/%,$(OBJ_RLINGUA))
 	$(CC) $(CFlags) -I$(IDIR) -o $(ODIR)/$@ $<
 
 # RR/OpenCog extension targets (header-only + standalone demos)
-extensions: $(BDIR)/rr_simple_demo $(BDIR)/rr_demo $(BDIR)/demo_repl $(BDIR)/test_rr_enhanced $(BDIR)/test_next_directions $(BDIR)/test_opencog_integration $(BDIR)/adaptive_foraging $(BDIR)/test_rlingua $(BDIR)/test_e2e
+extensions: $(BDIR)/rr_simple_demo $(BDIR)/rr_demo $(BDIR)/demo_repl $(BDIR)/test_rr_enhanced $(BDIR)/test_next_directions $(BDIR)/test_opencog_integration $(BDIR)/adaptive_foraging $(BDIR)/test_rlingua $(BDIR)/test_e2e $(BDIR)/test_mli_geometry_extensions
 
 $(BDIR)/rr_simple_demo: examples/rr/rr_simple_demo.cpp
 	@mkdir -p $(BDIR)
@@ -136,6 +136,10 @@ $(BDIR)/test_e2e: src/rr/test_e2e.cpp
 	@mkdir -p $(BDIR)
 	$(CC) -O2 -Wall -std=gnu++11 -I$(IDIR) -o $@ $<
 
+$(BDIR)/test_mli_geometry_extensions: src/msystem/test_mli_geometry_extensions.cpp src/msystem/mli_parser.cpp
+	@mkdir -p $(BDIR)
+	$(CC) -O2 -Wall -std=gnu++11 -I$(IDIR) -o $@ $^
+
 %.o: $(SDIR)/parser/%.c	
 	@mkdir -p $(ODIR)
 	$(CC) $(CFlags) -I$(IDIR) -o $(ODIR)/$@ $<
@@ -147,7 +151,7 @@ lex.yy.c: $(SDIR)/parser/plingua.l
 	$(FLEX) -o $(SDIR)/parser/$@ $<  
 	
 clean:
-	$(RM) -f $(patsubst %,$(ODIR)/%,$(OBJ_PLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_PSIM)) $(patsubst %,$(ODIR)/%,$(OBJ_MLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_MSIM)) $(patsubst %,$(ODIR)/%,$(OBJ_RLINGUA)) $(BDIR)/$(BIN_PLINGUA) $(BDIR)/$(BIN_PSIM) $(BDIR)/$(BIN_MLINGUA) $(BDIR)/$(BIN_MSIM) $(BDIR)/$(BIN_RLINGUA) $(BDIR)/rr_simple_demo $(BDIR)/rr_demo $(BDIR)/demo_repl $(BDIR)/test_rr_enhanced $(BDIR)/test_next_directions $(BDIR)/test_opencog_integration $(BDIR)/adaptive_foraging $(BDIR)/test_rlingua $(BDIR)/test_e2e $(SDIR)/parser/y.tab.c $(SDIR)/parser/y.tab.h $(SDIR)/parser/lex.yy.c
+	$(RM) -f $(patsubst %,$(ODIR)/%,$(OBJ_PLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_PSIM)) $(patsubst %,$(ODIR)/%,$(OBJ_MLINGUA)) $(patsubst %,$(ODIR)/%,$(OBJ_MSIM)) $(patsubst %,$(ODIR)/%,$(OBJ_RLINGUA)) $(BDIR)/$(BIN_PLINGUA) $(BDIR)/$(BIN_PSIM) $(BDIR)/$(BIN_MLINGUA) $(BDIR)/$(BIN_MSIM) $(BDIR)/$(BIN_RLINGUA) $(BDIR)/rr_simple_demo $(BDIR)/rr_demo $(BDIR)/demo_repl $(BDIR)/test_rr_enhanced $(BDIR)/test_next_directions $(BDIR)/test_opencog_integration $(BDIR)/adaptive_foraging $(BDIR)/test_rlingua $(BDIR)/test_e2e $(BDIR)/test_mli_geometry_extensions $(SDIR)/parser/y.tab.c $(SDIR)/parser/y.tab.h $(SDIR)/parser/lex.yy.c
 	
 install:
 	@mkdir -p /usr/local/PLingua/$(BIN_PLINGUA)/
@@ -160,4 +164,3 @@ install:
 	@cp -rf $(IDIR)/cereal/ /usr/local/include/
 	@mkdir -p /usr/local/include/plingua/
 	@cp -f $(IDIR)/serialization.* /usr/local/include/plingua/
-

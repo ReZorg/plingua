@@ -271,6 +271,78 @@ struct PolytoticTileSystem {
 	}
 };
 
+enum class GeometryProfile {
+	EUCLIDEAN,
+	PROJECTIVE,
+	HYPERBOLIC,
+	CUSTOM
+};
+
+struct ManifoldSpec {
+	std::string name;
+	int dimension;
+	int charts;
+	bool compact;
+	bool boundary;
+
+	ManifoldSpec() : dimension(2), charts(1), compact(false), boundary(false) {}
+
+	template<class A> void serialize(A& archive) {
+		archive(name, dimension, charts, compact, boundary);
+	}
+};
+
+struct MetricSpec {
+	std::string name;
+	std::string type;
+	std::string signature;
+
+	MetricSpec() : type("riemannian"), signature("+++") {}
+
+	template<class A> void serialize(A& archive) {
+		archive(name, type, signature);
+	}
+};
+
+struct ConnectionSpec {
+	std::string name;
+	std::string type;
+	std::string bundle;
+
+	ConnectionSpec() : type("levi_civita"), bundle("tangent") {}
+
+	template<class A> void serialize(A& archive) {
+		archive(name, type, bundle);
+	}
+};
+
+struct FlowSpec {
+	std::string name;
+	std::string type;
+	double step;
+	int iterations;
+	bool preserveVolume;
+
+	FlowSpec() : type("discrete"), step(0.01), iterations(1), preserveVolume(false) {}
+
+	template<class A> void serialize(A& archive) {
+		archive(name, type, step, iterations, preserveVolume);
+	}
+};
+
+struct PolytopeSpec {
+	std::string name;
+	int dimension;
+	std::map<std::string, size_t> incidenceCounts;
+	std::string symmetryGroup;
+
+	PolytopeSpec() : dimension(3), symmetryGroup("none") {}
+
+	template<class A> void serialize(A& archive) {
+		archive(name, dimension, incidenceCounts, symmetryGroup);
+	}
+};
+
 struct MSystem {
 	std::string name;
 	std::string modelType;
@@ -281,12 +353,24 @@ struct MSystem {
 	std::vector<MRule> rules;
 	std::vector<SignalRelease> signalReleases;
 	double reactionDistance;
+	GeometryProfile geometryProfile;
+	std::string geometryProfileLabel;
+	std::vector<ManifoldSpec> manifolds;
+	std::vector<MetricSpec> metrics;
+	std::vector<ConnectionSpec> connections;
+	std::vector<PolytopeSpec> polytopes;
+	std::vector<FlowSpec> flows;
+	std::vector<std::string> capabilities;
 
-	MSystem() : modelType("morphogenetic"), reactionDistance(1.0) {}
+	MSystem() : modelType("morphogenetic"), reactionDistance(1.0),
+	            geometryProfile(GeometryProfile::EUCLIDEAN),
+	            geometryProfileLabel("euclidean") {}
 
 	template<class A> void serialize(A& archive) {
 		archive(name, modelType, tiling, floatingObjects, protions,
-		        protionsOnTiles, rules, signalReleases, reactionDistance);
+		        protionsOnTiles, rules, signalReleases, reactionDistance,
+		        geometryProfile, geometryProfileLabel, manifolds, metrics,
+		        connections, polytopes, flows, capabilities);
 	}
 };
 

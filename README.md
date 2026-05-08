@@ -71,6 +71,8 @@ M-Lingua (`.mli`) extends P-Lingua with support for **Morphogenetic Systems** �
 * `@floating` — Floating object definitions with mobility and concentration
 * `@protion` — Protein-like markers on tiles
 * Rule types: `@create`, `@destroy`, `@divide`, metabolic rules
+* Geometry extensions: `@geometry`, `@manifold`, `@metric`, `@connection`
+* Advanced model directives: `@polytope`, `@flow`, `@capability`
 * Cytos-compatible XML output for Unity visualization
 
 ### M-Lingua Examples
@@ -83,6 +85,7 @@ M-Lingua (`.mli`) extends P-Lingua with support for **Morphogenetic Systems** �
 | `examples/msystem/ladder.mli` | Linear self-assembly |
 | `examples/msystem/self_healing.mli` | Robust membrane repair |
 | `examples/msystem/tissue_morphogenetic.mli` | Tissue-like M system |
+| `examples/msystem/geometry_120cell.mli` | Geometry-profile + 120-cell metadata example |
 
 ### Cytos Reference XML
 
@@ -296,4 +299,3 @@ examples/
 ├── opencog/          # OpenCog P-Lingua models (6 subsystems)
 └── cytos_xml/        # Cytos reference XML (8 examples + schema)
 ```
-

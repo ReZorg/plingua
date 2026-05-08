@@ -37,6 +37,13 @@ An M system `M = (F, P, T, μ, R, σ)` where:
 | `@seed` | Defines seed tiles |
 | `@glue_radius` | Gluing distance |
 | `@sigma` | Glue-pair release mapping |
+| `@geometry` | Selects geometry profile (`euclidean`, `projective`, `hyperbolic`, custom) |
+| `@manifold` | Declares manifold metadata (charts, dimension, compactness) |
+| `@metric` | Declares metric tensor family metadata |
+| `@connection` | Declares connection metadata (e.g., Levi-Civita, gauge) |
+| `@polytope` | Declares high-dimensional polytope incidence metadata |
+| `@flow` | Declares geometric flow metadata (e.g., discrete Ricci) |
+| `@capability` | Enables capability/invariant flags (e.g., gauge invariance) |
 
 ## Rule Types
 
@@ -91,6 +98,22 @@ u [| p v --> v [| p u;
     @protion p1 at (x, y);
 }
 ```
+
+## Geometry & Advanced Topology Directives
+
+```mli
+@geometry<projective>;
+@manifold sphere(charts=8, dimension=2, compact=true);
+@metric g(type=riemannian, signature=+++);
+@connection nabla(type=levi_civita, bundle=tangent);
+@capability gauge_invariance;
+@flow rf(type=discrete_ricci, step=0.02, iterations=25, preserve_volume=true);
+@polytope c120(dimension=4, vertices=600, edges=1200, faces=720, cells=120, symmetry=H4);
+```
+
+These directives are currently parsed as **model metadata** and are designed to
+keep backward compatibility while enabling staged language evolution for
+higher-dimensional and non-Euclidean experiments.
 
 ## Full Example: Boxy Hallows
 
