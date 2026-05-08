@@ -25,6 +25,13 @@ private:
 	int lineNum_;
 
 	bool parseModelDecl(const std::string& line);
+	bool parseGeometryProfile(const std::string& line);
+	bool parseManifold(const std::string& line);
+	bool parseMetric(const std::string& line);
+	bool parseConnection(const std::string& line);
+	bool parseCapability(const std::string& line);
+	bool parseFlow(const std::string& line);
+	bool parsePolytope(const std::string& line);
 	bool parseTilingStart(const std::string& line);
 	bool parseTileStart(const std::string& line, Tile& tile);
 	bool parseConnector(const std::string& line, Tile& tile);

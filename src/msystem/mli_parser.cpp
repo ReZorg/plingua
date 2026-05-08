@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <cctype>
 
 namespace plingua {
 namespace msystem {
@@ -36,6 +37,18 @@ static std::vector<std::string> split(const std::string& s, char delim) {
 		if (!trimmed.empty()) result.push_back(trimmed);
 	}
 	return result;
+}
+
+static std::string toLower(const std::string& s) {
+	std::string out = s;
+	for (size_t i = 0; i < out.size(); ++i) {
+		out[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(out[i])));
+	}
+	return out;
+}
+
+static bool parseBoolLiteral(const std::string& s) {
+	return toLower(trim(s)) == "true";
 }
 
 static std::string stripComments(const std::string& src) {
@@ -103,6 +116,13 @@ bool MliParser::parseString(const std::string& source, const std::string& filena
 		if (ln.empty()) continue;
 
 		if (parseModelDecl(ln)) continue;
+		if (parseGeometryProfile(ln)) continue;
+		if (parseManifold(ln)) continue;
+		if (parseMetric(ln)) continue;
+		if (parseConnection(ln)) continue;
+		if (parseCapability(ln)) continue;
+		if (parseFlow(ln)) continue;
+		if (parsePolytope(ln)) continue;
 		if (parseTilingStart(ln)) { inTiling = true; braceDepth = 1; continue; }
 
 		if (inTiling) {
@@ -171,6 +191,109 @@ bool MliParser::parseModelDecl(const std::string& line) {
 		return true;
 	}
 	return false;
+}
+
+bool MliParser::parseGeometryProfile(const std::string& line) {
+	std::regex re(R"(@geometry\s*<\s*([A-Za-z_][A-Za-z0-9_\-]*)\s*>\s*;)");
+	std::smatch m;
+	if (!std::regex_search(line, m, re)) return false;
+
+	std::string raw = m[1].str();
+	std::string profile = toLower(raw);
+	system_.geometryProfileLabel = profile;
+
+	if (profile == "euclidean" || profile == "affine") {
+		system_.geometryProfile = GeometryProfile::EUCLIDEAN;
+	} else if (profile == "projective" || profile == "spherical") {
+		system_.geometryProfile = GeometryProfile::PROJECTIVE;
+	} else if (profile == "hyperbolic" || profile == "non_euclidean" || profile == "non-euclidean") {
+		system_.geometryProfile = GeometryProfile::HYPERBOLIC;
+	} else {
+		system_.geometryProfile = GeometryProfile::CUSTOM;
+		system_.geometryProfileLabel = raw;
+	}
+	return true;
+}
+
+bool MliParser::parseManifold(const std::string& line) {
+	std::regex re(R"(@manifold\s+(\w+)\s*\(\s*charts\s*=\s*(\d+)\s*,\s*dimension\s*=\s*(\d+)\s*,\s*compact\s*=\s*(true|false)(?:\s*,\s*boundary\s*=\s*(true|false))?\s*\)\s*;)");
+	std::smatch m;
+	if (!std::regex_search(line, m, re)) return false;
+
+	ManifoldSpec manifold;
+	manifold.name = m[1].str();
+	manifold.charts = std::stoi(m[2].str());
+	manifold.dimension = std::stoi(m[3].str());
+	manifold.compact = parseBoolLiteral(m[4].str());
+	if (m[5].matched) manifold.boundary = parseBoolLiteral(m[5].str());
+	system_.manifolds.push_back(manifold);
+	return true;
+}
+
+bool MliParser::parseMetric(const std::string& line) {
+	std::regex re(R"(@metric\s+(\w+)\s*\(\s*type\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*)\s*,\s*signature\s*=\s*([^\),]+)\s*\)\s*;)");
+	std::smatch m;
+	if (!std::regex_search(line, m, re)) return false;
+
+	MetricSpec metric;
+	metric.name = m[1].str();
+	metric.type = m[2].str();
+	metric.signature = trim(m[3].str());
+	system_.metrics.push_back(metric);
+	return true;
+}
+
+bool MliParser::parseConnection(const std::string& line) {
+	std::regex re(R"(@connection\s+(\w+)\s*\(\s*type\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*)(?:\s*,\s*bundle\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*))?\s*\)\s*;)");
+	std::smatch m;
+	if (!std::regex_search(line, m, re)) return false;
+
+	ConnectionSpec connection;
+	connection.name = m[1].str();
+	connection.type = m[2].str();
+	if (m[3].matched) connection.bundle = m[3].str();
+	system_.connections.push_back(connection);
+	return true;
+}
+
+bool MliParser::parseCapability(const std::string& line) {
+	std::regex re(R"(@capability\s+([A-Za-z_][A-Za-z0-9_\-]*)\s*;)");
+	std::smatch m;
+	if (!std::regex_search(line, m, re)) return false;
+	system_.capabilities.push_back(m[1].str());
+	return true;
+}
+
+bool MliParser::parseFlow(const std::string& line) {
+	std::regex re(R"(@flow\s+(\w+)\s*\(\s*type\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*)\s*,\s*step\s*=\s*([0-9.eE+-]+)\s*,\s*iterations\s*=\s*(\d+)(?:\s*,\s*preserve_volume\s*=\s*(true|false))?\s*\)\s*;)");
+	std::smatch m;
+	if (!std::regex_search(line, m, re)) return false;
+
+	FlowSpec flow;
+	flow.name = m[1].str();
+	flow.type = m[2].str();
+	flow.step = std::stod(m[3].str());
+	flow.iterations = std::stoi(m[4].str());
+	if (m[5].matched) flow.preserveVolume = parseBoolLiteral(m[5].str());
+	system_.flows.push_back(flow);
+	return true;
+}
+
+bool MliParser::parsePolytope(const std::string& line) {
+	std::regex re(R"(@polytope\s+(\w+)\s*\(\s*dimension\s*=\s*(\d+)\s*,\s*vertices\s*=\s*(\d+)\s*,\s*edges\s*=\s*(\d+)\s*,\s*faces\s*=\s*(\d+)\s*,\s*cells\s*=\s*(\d+)(?:\s*,\s*symmetry\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*))?\s*\)\s*;)");
+	std::smatch m;
+	if (!std::regex_search(line, m, re)) return false;
+
+	PolytopeSpec poly;
+	poly.name = m[1].str();
+	poly.dimension = std::stoi(m[2].str());
+	poly.incidenceCounts["vertices"] = static_cast<size_t>(std::stoul(m[3].str()));
+	poly.incidenceCounts["edges"] = static_cast<size_t>(std::stoul(m[4].str()));
+	poly.incidenceCounts["faces"] = static_cast<size_t>(std::stoul(m[5].str()));
+	poly.incidenceCounts["cells"] = static_cast<size_t>(std::stoul(m[6].str()));
+	if (m[7].matched) poly.symmetryGroup = m[7].str();
+	system_.polytopes.push_back(poly);
+	return true;
 }
 
 bool MliParser::parseTilingStart(const std::string& line) {

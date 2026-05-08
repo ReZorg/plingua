@@ -88,7 +88,14 @@ int main(int argc, char* argv[]) {
 		          << "  Floating objects: " << sys.floatingObjects.size() << "\n"
 		          << "  Protions: " << sys.protions.size() << "\n"
 		          << "  Rules: " << sys.rules.size() << "\n"
-		          << "  Seed tiles: " << sys.tiling.seedTiles.size() << "\n";
+		          << "  Seed tiles: " << sys.tiling.seedTiles.size() << "\n"
+		          << "  Geometry profile: " << sys.geometryProfileLabel << "\n"
+		          << "  Manifolds: " << sys.manifolds.size() << "\n"
+		          << "  Metrics: " << sys.metrics.size() << "\n"
+		          << "  Connections: " << sys.connections.size() << "\n"
+		          << "  Polytopes: " << sys.polytopes.size() << "\n"
+		          << "  Flows: " << sys.flows.size() << "\n"
+		          << "  Capabilities: " << sys.capabilities.size() << "\n";
 	}
 
 	std::string output;
