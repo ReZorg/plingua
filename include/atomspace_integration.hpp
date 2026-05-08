@@ -248,7 +248,68 @@ public:
     void performIntegration() {
         convertRRNodesToAtoms();
         convertRREdgesToAtoms();
+        projectEnneadToAtoms();
     }
+
+    // ── Ennead projection ─────────────────────────────────────────────────────
+    // Projects per-node ennead dimensions and grip metrics into AtomSpace as
+    // EvaluationLinks under dedicated PredicateNodes so they are queryable.
+    void projectEnneadToAtoms() {
+        if (!rr_hypergraph || !atom_space) return;
+
+        // Helper: get or create a predicate node by name
+        auto getOrCreatePredicate = [&](const std::string& name) -> unsigned {
+            auto existing = atom_space->findAtomsByName(name);
+            if (!existing.empty()) return existing[0];
+            return atom_space->addPredicateNode(name);
+        };
+
+        unsigned pred_grip      = getOrCreatePredicate("grip_index");
+        unsigned pred_coherence = getOrCreatePredicate("coherence");
+        unsigned pred_balance   = getOrCreatePredicate("ennead_balance");
+
+        // Names for the nine ennead dimensions
+        static const char* ennead_names[] = {
+            "identity_continuity", "skill_readiness", "motivational_valence",
+            "constraint_clarity",  "affordance_density", "feedback_latency",
+            "coupling_strength",   "reciprocal_shaping", "adaptive_fit"
+        };
+        unsigned pred_ennead[9];
+        for (int d = 0; d < 9; ++d)
+            pred_ennead[d] = getOrCreatePredicate(ennead_names[d]);
+
+        for (auto& kv : rr_hypergraph->nodes) {
+            auto rr_node = kv.second;
+            auto node_it = rr_node_to_atom.find(rr_node->id);
+            if (node_it == rr_node_to_atom.end()) continue;
+            unsigned atom_id = node_it->second;
+
+            // grip_index
+            atom_space->addEvaluationLink(
+                pred_grip, {atom_id},
+                rr_node->grip_index, rr_node->coherence);
+
+            // coherence
+            atom_space->addEvaluationLink(
+                pred_coherence, {atom_id},
+                rr_node->coherence, 0.9);
+
+            // ennead_balance
+            double eb = rr_node->ennead.balance();
+            atom_space->addEvaluationLink(
+                pred_balance, {atom_id},
+                eb, 0.9);
+
+            // nine ennead dimensions
+            std::vector<double> dims = rr_node->ennead.toVector();
+            for (int d = 0; d < 9 && d < static_cast<int>(dims.size()); ++d) {
+                atom_space->addEvaluationLink(
+                    pred_ennead[d], {atom_id},
+                    dims[d], 0.9);
+            }
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
     
     // Query AtomSpace for RR-relevant patterns
     std::vector<std::string> findEmergentPatterns() const {
