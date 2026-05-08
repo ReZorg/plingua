@@ -300,9 +300,10 @@ private:
     // ── Ennead / grip helpers ─────────────────────────────────────────────────
 
     unsigned parseNodeId(const std::string& cmd) {
-        size_t p = cmd.find("node-");
+        static const std::string PREFIX = "node-";
+        size_t p = cmd.find(PREFIX);
         if (p == std::string::npos) return 0;
-        p += 5;
+        p += PREFIX.size();
         size_t end = cmd.find_first_not_of("0123456789", p);
         std::string id_str = (end == std::string::npos) ? cmd.substr(p) : cmd.substr(p, end - p);
         try { return static_cast<unsigned>(std::stoul(id_str)); } catch (...) { return 0; }
