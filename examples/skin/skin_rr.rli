@@ -1,0 +1,215 @@
+/*
+ * skin_rr.rli — Phase 5: Relevance-Guided Formulation Calibration
+ *
+ * R-Lingua model implementing the trielectic ennead architecture for
+ * automated parameter optimisation of topical cosmeceutical formulations.
+ *
+ * Framing
+ * ────────
+ *   Agent  = cosmeceutical formulation (vehicle + active ingredient)
+ *   Arena  = skin layer compartment (SC, VE, dermis)
+ *   Coupling strength ≈ permeability coefficient (Kp) from Phase 1/2
+ *
+ * The grip index at convergence identifies the optimal formulation–layer
+ * configuration for maximum bioavailability of the active ingredient.
+ *
+ * Ennead mapping (skin-biology interpretation)
+ * ─────────────────────────────────────────────
+ *   Triad A (Agent — Formulation):
+ *     identity_continuity   → formulation stability (shelf-life proxy)
+ *     skill_readiness       → active ingredient bioavailability readiness
+ *     motivational_valence  → therapeutic potency / target affinity
+ *
+ *   Triad B (Arena — Skin Layer):
+ *     constraint_clarity    → barrier integrity index (TEWL inverse)
+ *     affordance_density    → receptor / binding-site density in layer
+ *     feedback_latency      → clearance half-time (longer = slower feedback)
+ *
+ *   Triad C (Relation — Coupling):
+ *     coupling_strength     → permeability coefficient Kp
+ *     reciprocal_shaping    → formulation–barrier co-adaptation (e.g. AHA)
+ *     adaptive_fit          → selectivity (active reaches target, not off-target)
+ *
+ * Systems modelled
+ * ─────────────────
+ *   3 formulation agents:
+ *     f_cbd_oil   — CBD in hemp-seed oil carrier (high log P vehicle)
+ *     f_nia_aq    — Niacinamide in aqueous gel (low log P vehicle)
+ *     f_ret_lipo  — Retinol in liposomal carrier (biphasic vehicle)
+ *
+ *   3 skin arena compartments:
+ *     a_sc        — Stratum Corneum (barrier, lipid-rich)
+ *     a_ve        — Viable Epidermis (aqueous, metabolically active)
+ *     a_dermis    — Dermis (vascular, clearance sink)
+ *
+ * Expected grip index outcome (indicative, not validated):
+ *   f_cbd_oil  ↔ a_sc    : high (log P 6.3 → lipid barrier affinity)
+ *   f_nia_aq   ↔ a_ve    : high (log P −0.37 → aqueous VE affinity)
+ *   f_ret_lipo ↔ a_sc    : moderate-high (liposome SC fusion)
+ *   f_ret_lipo ↔ a_dermis: low (poor dermal clearance after SC accumulation)
+ *
+ * Run:
+ *   bin/rlingua examples/skin/skin_rr.rli -s 300 -v -o skin_grip_report.json
+ */
+
+@rmodel<relevance_realization>
+
+/* ─── Ennead: skin-biology parameter initialisation ─────────────────────
+ *
+ * Triad_A anchored on a moderately-ready formulation (not pre-optimised).
+ * Triad_B anchored on typical healthy-skin barrier metrics.
+ * Triad_C starts at low coupling — will self-organise toward optimal grip.
+ */
+@ennead {
+    @triad_a {
+        /* Formulation stability: all three actives are shelf-stable */
+        identity_continuity  = 0.80;
+        /* Bioavailability readiness: liposome > oil > aqueous gel */
+        skill_readiness      = 0.65;
+        /* Therapeutic potency: CBD > retinol > niacinamide (indication-dep.) */
+        motivational_valence = 0.75;
+    }
+    @triad_b {
+        /* Barrier integrity: healthy SC (TEWL ~5 g m⁻² h⁻¹ → high integrity) */
+        constraint_clarity = 0.80;
+        /* Receptor density: dermis richest (fibroblast, EC, mast cell) */
+        affordance_density = 0.70;
+        /* Clearance: dermis fastest (capillary), SC slowest */
+        feedback_latency   = 0.45;
+    }
+    @triad_c {
+        /* Kp proxy — starts low, RR dynamics will update */
+        coupling_strength  = 0.35;
+        /* Co-adaptation: AHA formulations raise this dynamically */
+        reciprocal_shaping = 0.30;
+        /* Selectivity: starts neutral */
+        adaptive_fit       = 0.40;
+    }
+}
+
+/* ─── Constraints ────────────────────────────────────────────────────────
+ *
+ * grip_threshold: minimum grip to be considered therapeutically relevant.
+ *   Set at 0.3 — low bar since skin delivery is inherently lossy.
+ *
+ * emergence_sensitivity: pattern (synergistic formulation effect) emerges
+ *   when coupling_strength + adaptive_fit both rise above this.
+ *
+ * convergence_window: 100 steps gives dynamics time to plateau.
+ *
+ * affordance_decay: 0.008 — receptor downregulation / desensitisation.
+ *
+ * salience_threshold: 0.04 — ignore negligible flux signals.
+ */
+@constraints {
+    grip_threshold        = 0.30;
+    emergence_sensitivity = 0.68;
+    convergence_window    = 100;
+    affordance_decay      = 0.008;
+    salience_threshold    = 0.04;
+}
+
+/* ─── Main system ─────────────────────────────────────────────────────── */
+def main() {
+
+    /* ═══════════════════════════════════════════════════════════════════
+     * FORMULATION AGENTS
+     * ═══════════════════════════════════════════════════════════════════
+     *
+     * salience  = bioavailability signal strength (relative to dose)
+     * affordance = maximum achievable flux (related to Kp × Cdonor)
+     */
+
+    /* CBD in hemp-seed oil (1% CBD w/w) */
+    @agent id=f_cbd_oil   label="CBD_oil_1pct"
+           salience=0.80   affordance=1.6;
+
+    /* Niacinamide in aqueous gel (5% NIA w/w) */
+    @agent id=f_nia_aq    label="Niacinamide_gel_5pct"
+           salience=0.75   affordance=1.4;
+
+    /* Retinol in liposomal carrier (0.3% retinol) */
+    @agent id=f_ret_lipo  label="Retinol_liposome_0p3pct"
+           salience=0.70   affordance=1.2;
+
+    /* ═══════════════════════════════════════════════════════════════════
+     * SKIN ARENA COMPARTMENTS
+     * ═══════════════════════════════════════════════════════════════════
+     *
+     * salience   = layer's pharmacological significance
+     * affordance = target capacity × receptor density (layer-specific)
+     */
+
+    /* Stratum Corneum: primary barrier, lipid-rich */
+    @arena id=a_sc      label="Stratum_Corneum"
+           salience=0.90  affordance=0.9;   /* high salience, low receptor capacity */
+
+    /* Viable Epidermis: keratinocytes, melanocytes, metabolically active */
+    @arena id=a_ve      label="Viable_Epidermis"
+           salience=0.75  affordance=1.5;   /* rich in receptors (CB, retinoid) */
+
+    /* Dermis: fibroblasts, vascular, mast cells, collagen matrix */
+    @arena id=a_dermis  label="Dermis"
+           salience=0.65  affordance=1.8;   /* highest receptor density          */
+
+    /* ═══════════════════════════════════════════════════════════════════
+     * FORMULATION–LAYER COUPLING
+     *
+     * Strength values are informed by partition coefficient and
+     * layer-specific physicochemical affinity:
+     *
+     *   CBD (log P 6.3): strong SC affinity, moderate VE, poor dermis
+     *   NIA (log P -0.37): poor SC (bypasses via aqueous pores),
+     *                      excellent VE and dermis
+     *   Retinol (log P 5.7): strong SC (liposome helps), good VE,
+     *                        poor dermis (high protein binding)
+     * ═══════════════════════════════════════════════════════════════════
+     */
+    @coupling {
+
+        /* CBD ↔ SC: high lipid affinity → bidirectional accumulation */
+        f_cbd_oil  <-> a_sc     :: co_constitution strength=0.85;
+
+        /* CBD → VE: moderate permeation into viable tissue */
+        f_cbd_oil  ->  a_ve     :: application     strength=0.55;
+
+        /* CBD → dermis: poor (lipid binding limits free fraction) */
+        f_cbd_oil  ->  a_dermis :: application     strength=0.20;
+
+        /* NIA ↔ SC: poor lipid affinity but aqueous pore route */
+        f_nia_aq   ->  a_sc     :: application     strength=0.30;
+
+        /* NIA ↔ VE: excellent — aqueous cytoplasm, high NAD+ demand */
+        f_nia_aq   <-> a_ve     :: co_constitution strength=0.90;
+
+        /* NIA → dermis: good — unbound, aqueous clearance */
+        f_nia_aq   ->  a_dermis :: application     strength=0.65;
+
+        /* Retinol (liposome) ↔ SC: liposome fusion enhances SC delivery */
+        f_ret_lipo <-> a_sc     :: co_constitution strength=0.75;
+
+        /* Retinol → VE: moderate (liposome releases retinol in VE) */
+        f_ret_lipo <-> a_ve     :: co_constitution strength=0.70;
+
+        /* Retinol → dermis: poor (CRABP-II binding sequesters in VE) */
+        f_ret_lipo ->  a_dermis :: application     strength=0.15;
+
+        /* Cross-layer arena couplings (RR hypergraph edges):
+         * SC acts as reservoir feeding VE; VE feeds dermis.
+         * These encode the pharmacokinetic cascade.
+         */
+        a_sc     ->  a_ve     :: application strength=0.70;
+        a_ve     ->  a_dermis :: application strength=0.60;
+    }
+}
+
+/* ─── Observability ──────────────────────────────────────────────────── */
+@observe {
+    sample_period = 15;
+    report_fields = grip_index,
+                    ennead_balance,
+                    coupling_strength,
+                    adaptive_fit,
+                    relevance_gradient,
+                    emergence_score;
+}

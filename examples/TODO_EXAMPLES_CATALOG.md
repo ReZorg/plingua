@@ -78,3 +78,26 @@ Complexity levels: **L1 = introductory**, **L2 = intermediate**, **L3 = advanced
 |---|---|---|
 | Kernel P systems | `todo_kp_flame_agent_coordination.pli` | No kP model in P-Lingua yet |
 | Numerical / enzymatic | `todo_enps_navigation_controller.pli` | No ENPS model in P-Lingua yet |
+
+---
+
+## 6) Skin — Multiscale Cosmeceutical Model (all phases complete)
+
+Complexity levels: **L1 = introductory**, **L2 = intermediate**, **L3 = advanced/research-grade**.
+
+| Phase | P-system type / DSL | Application | Complexity | Example file | Description |
+|---|---|---|---:|---|---|
+| 1 | Cell-like (transition) | Transdermal PBPK | L1 | `skin/sc_ve_diffusion.pli` | 1D two-compartment Fickian diffusion (donor→SC→VE→sink); validates against Franz cell caffeine data |
+| 2 | M-Lingua spatial | Skin tissue geometry | L2 | `skin/skin_layers.mli` | 3D stratified SC/VE/dermis tile system with transcellular + intercellular routes; cosmeceutical floating objects |
+| 2 | M-Lingua spatial | Appendageal pathway | L2 | `skin/follicle_shunt.mli` | Hair follicle bypass route (infundibulum, isthmus, bulge, sebaceous gland); nanoparticle deposition |
+| 3 | M-Lingua metabolic | Barrier biology | L3 | `skin/barrier_repair.mli` | Ceramide de novo synthesis (SPT→dihydroceramide→ceramide), lamellar body exocytosis, desquamation counter, NF-κB inflammatory cascade, barrier repair |
+| 4 | M-Lingua metabolic | Cosmeceutical actives | L2 | `skin/actives/cbd.mli` | CBD pharmacology: CB2R anti-inflammatory, TRPV1 ceramide stimulation, PPARγ sebostatic effect, mast cell modulation |
+| 4 | M-Lingua metabolic | Cosmeceutical actives | L2 | `skin/actives/retinol.mli` | Retinoid cascade (retinol→RAL→RA→CRABP→RAR/RXR): collagen synthesis, MMP inhibition, cornification, retinoid dermatitis |
+| 4 | M-Lingua metabolic | Cosmeceutical actives | L2 | `skin/actives/niacinamide.mli` | Niacinamide pathways: NAD⁺ biosynthesis, SIRT1 anti-inflammatory, PAR-2 melanin-transfer block, anti-glycation, barrier lipid upregulation |
+| 4 | M-Lingua metabolic | Cosmeceutical actives | L2 | `skin/actives/aha.mli` | AHA keratolysis: pH-dependent kallikrein activation, corneodesmolysis, Ca²⁺ sequestration, cell-cycle counter, post-exfoliation repair |
+| 5 | R-Lingua | Parameter calibration | L3 | `skin/skin_rr.rli` | Trielectic ennead formulation optimisation: 3 agents (CBD oil, niacinamide gel, retinol liposome) × 3 arenas (SC, VE, dermis); grip index = bioavailability optimality |
+| 6 | OpenCog (PLN + ECAN + OpenPsi) | PBPK systemic coupling | L3 | `opencog/skin_pbpk.pli` | Full PBPK: SC→VE→dermis→blood→liver; PLN safety/efficacy inference; ECAN rate-limiting-barrier attention; OpenPsi competence/integrity/exploration drives |
+
+### Skin model documentation
+
+See `docs/SKIN_MODEL_SPEC.md` for the complete language specification, parameter tables, and validation guidance.

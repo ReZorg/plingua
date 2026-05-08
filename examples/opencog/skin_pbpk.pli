@@ -1,0 +1,300 @@
+/*
+ * skin_pbpk.pli — Phase 6: PBPK Systemic Coupling (OpenCog PLN + ECAN)
+ *
+ * Connects dermal absorption (from Phase 1/2 models) to systemic
+ * compartments, enabling safety/efficacy reasoning via OpenCog cognitive
+ * architecture.
+ *
+ * PBPK compartments modelled
+ * ─────────────────────────────
+ *   Membrane 1  : Donor (formulation on skin surface)
+ *   Membrane 2  : Stratum Corneum (SC) — rate-limiting lipid barrier
+ *   Membrane 3  : Viable Epidermis (VE) — metabolically active
+ *   Membrane 4  : Dermis + dermal microcirculation
+ *   Membrane 5  : Venous blood (systemic circulation entry)
+ *   Membrane 6  : Liver (first-pass + hepatic metabolism proxy)
+ *   Membrane 7  : PLN inference engine (safety / efficacy reasoning)
+ *   Membrane 8  : ECAN attention spreader (rate-limiting barrier focus)
+ *   Membrane 9  : OpenPsi drive system (bioavailability / toxicity goals)
+ *
+ * OpenCog subsystem roles
+ * ────────────────────────
+ *   PLN  — Probabilistic inference:
+ *          DermalFlux(X) ∧ BloodClearance(X) → SystemicExposure(X)
+ *          SystemicExposure(X) > ToxicThreshold(X) → SafetyAlert(X)
+ *          SystemicExposure(X) ∈ TherapeuticWindow(X) → EfficacySignal(X)
+ *
+ *   ECAN — Attention allocation:
+ *          High STI → compartments with highest flux divergence
+ *          (identifies rate-limiting barriers automatically)
+ *
+ *   OpenPsi — Motivational drives:
+ *          competence  = bioavailability target (maximise therapeutic window)
+ *          integrity   = toxicity limit (systemic Cmax < safety threshold)
+ *          exploration = formulation search (try new vehicles / concentrations)
+ *
+ * Objects
+ * ───────
+ *   X_sc     — drug in SC (lipid phase)
+ *   X_ve     — drug in VE (aqueous phase)
+ *   X_dermis — drug in dermis
+ *   X_blood  — drug in systemic circulation
+ *   X_liver  — drug in liver (metabolised → M_liver)
+ *   M_liver  — hepatic metabolite (may have own activity)
+ *   flux_high, flux_low — ECAN flux divergence signals
+ *   tv_strong, tv_weak  — PLN truth value tokens (from opencog_pln.pli)
+ *   drive_comp, drive_integ, drive_expl — OpenPsi drive tokens
+ *   safety_alert, efficacy_signal — PLN inference outputs
+ *
+ * Reference: Gilmore et al. (2009) PBPK dermal absorption model;
+ *            Kattou et al. (2019) Pharm. Res. multiscale PBPK.
+ *
+ * Run:
+ *   bin/plingua examples/opencog/skin_pbpk.pli -o /tmp/skin_pbpk.psim
+ *   bin/psim /tmp/skin_pbpk.psim -steps 500 -v
+ */
+
+@model<opencog_pbpk>
+
+@include "opencog_atomspace.pli"
+
+@Θ-system skin_pbpk_engine {
+
+    /* ── Affordance space ──────────────────────────────────────────────── */
+    @affordances = {
+        (X_sc, X_ve, X_dermis, X_blood, X_liver, M_liver),  /* drug species    */
+        (flux_high, flux_low),                                /* ECAN signals    */
+        (tv_strong, tv_weak, conf_high, conf_low),            /* PLN truth vals  */
+        (drive_comp, drive_integ, drive_expl),                /* OpenPsi drives  */
+        (safety_alert, efficacy_signal),                      /* PLN outputs     */
+        (rr_salience_high, rr_salience_low)                   /* RR interface    */
+    };
+
+    /* ── Agent-Arena boundary ─────────────────────────────────────────── */
+    @agent_arena skin_pbpk_core {
+
+        /* ── Membrane 2: Stratum Corneum ──────────────────────────────── */
+        @lambda[2] 'sc_compartment {
+
+            /* Donor load: SC starts saturated from formulation */
+            X_sc{20};
+
+            /*
+             * SC permeation: X_sc → X_ve (Fickian flux)
+             * Rate ∝ Kp_sc × (C_donor − C_ve)
+             * Encoded as deterministic rule; step = one flux unit
+             */
+            [X_sc -> X_ve, @d]'sc_compartment;
+
+            /*
+             * Back-diffusion: X_ve re-enters SC from VE
+             */
+            [X_ve -> X_sc, @d]'sc_compartment;
+
+            /* SC retention: drug binds SC proteins / lipids (slow release) */
+            [X_sc -> X_sc_bound]'sc_compartment;
+            [X_sc_bound -> X_sc]'sc_compartment;
+
+            /* ECAN flux signal: high SC→VE flux → flux_high */
+            [X_sc, X_ve -> flux_high, @d]'sc_compartment;
+        }
+
+        /* ── Membrane 3: Viable Epidermis ──────────────────────────────── */
+        @lambda[3] 've_compartment {
+
+            X_ve{0};
+
+            /* VE → dermis permeation */
+            [X_ve -> X_dermis, @d]'ve_compartment;
+
+            /* VE enzymatic metabolism (esterases, CYP1A1/1B1) */
+            [X_ve -> M_ve]'ve_compartment;
+
+            /* VE protein binding */
+            [X_ve -> X_ve_bound]'ve_compartment;
+            [X_ve_bound -> X_ve]'ve_compartment;
+
+            /* ECAN: VE flux divergence signal */
+            [X_ve, X_dermis -> flux_high, @d]'ve_compartment;
+            [X_ve_bound      -> flux_low]'ve_compartment;
+        }
+
+        /* ── Membrane 4: Dermis / Dermal Microcirculation ──────────────── */
+        @lambda[4] 'dermis_compartment {
+
+            X_dermis{0};
+
+            /* Capillary uptake: X_dermis → X_blood */
+            [X_dermis -> X_blood, @d]'dermis_compartment;
+
+            /* Dermal binding (albumin, collagen) */
+            [X_dermis -> X_dermis_bound]'dermis_compartment;
+            [X_dermis_bound -> X_dermis]'dermis_compartment;
+
+            /* Clearance signal for ECAN */
+            [X_dermis, X_blood -> flux_high, @d]'dermis_compartment;
+        }
+
+        /* ── Membrane 5: Venous Blood / Systemic ──────────────────────── */
+        @lambda[5] 'systemic_compartment {
+
+            X_blood{0};
+
+            /* Hepatic first-pass: X_blood → X_liver */
+            [X_blood -> X_liver, @d]'systemic_compartment;
+
+            /* Renal clearance: X_blood eliminated */
+            [X_blood -> X_clr]'systemic_compartment;
+
+            /* Distribution: X_blood → peripheral tissues */
+            [X_blood -> X_tissue]'systemic_compartment;
+
+            /* Systemic exposure signal for PLN */
+            [X_blood, tv_strong -> efficacy_signal, @d]'systemic_compartment;
+            [X_blood, tv_weak   -> safety_alert,     @d]'systemic_compartment;
+        }
+
+        /* ── Membrane 6: Liver Metabolism ──────────────────────────────── */
+        @lambda[6] 'liver_compartment {
+
+            X_liver{0};
+
+            /* CYP450 oxidation: X_liver → M_liver (Phase I) */
+            [X_liver -> M_liver]'liver_compartment;
+
+            /* Glucuronidation (Phase II): M_liver → M_conj */
+            [M_liver -> M_conj]'liver_compartment;
+
+            /* Biliary excretion */
+            [M_conj -> M_bile, @d]'liver_compartment;
+
+            /* Metabolite re-circulation (enterohepatic) */
+            [M_bile -> M_liver]'liver_compartment;
+        }
+
+        /* ── Membrane 7: PLN Inference Engine ──────────────────────────── */
+        @lambda[7] 'pln_skin {
+
+            tv_strong{2}, tv_weak{2};
+
+            /*
+             * PLN Rule 1: DermalFlux(X) ∧ BloodClearance(X) → SystemicExposure(X)
+             * High dermal flux + rapid blood clearance → significant systemic
+             * exposure with high confidence.
+             */
+            [flux_high, tv_strong -> efficacy_signal, conf_high, @d]'pln_skin;
+            [flux_low,  tv_weak   -> efficacy_signal, conf_low,  @d]'pln_skin;
+
+            /*
+             * PLN Rule 2: SystemicExposure(X) > ToxicThreshold(X) → SafetyAlert
+             * Threshold encoded as ≥ 3 X_blood tokens simultaneously.
+             */
+            [X_blood, X_blood, X_blood, tv_strong -> safety_alert, @d]'pln_skin;
+
+            /*
+             * PLN Rule 3: Efficacy inference from therapeutic window
+             */
+            [efficacy_signal, tv_strong, conf_high
+             -> efficacy_confirmed, @d]'pln_skin;
+
+            /*
+             * PLN-RR bridge: high PLN confidence → high RR salience
+             */
+            [efficacy_confirmed -> rr_salience_high, @d]'pln_skin;
+            [safety_alert       -> rr_salience_low,  @d]'pln_skin;
+        }
+
+        /* ── Membrane 8: ECAN Attention Spreading ───────────────────────
+         *
+         * High-STI attention given to compartments with largest flux
+         * divergence.  Identifies rate-limiting barriers.
+         */
+        @lambda[8] 'ecan_skin {
+
+            flux_low{4};
+
+            /*
+             * STI spreading: compartment with flux_high receives attention.
+             * Represents ECAN spotlighting the rate-limiting step.
+             */
+            [flux_high -> rr_salience_high, @d]'ecan_skin;
+            [flux_low  -> rr_salience_low]'ecan_skin;
+
+            /* Attention decay: salience decays each step (rent/wage economics) */
+            [rr_salience_high -> rr_salience_low]'ecan_skin;
+        }
+
+        /* ── Membrane 9: OpenPsi Drives ─────────────────────────────────
+         *
+         * Three motivational drives govern the formulation search:
+         *   competence  — bioavailability target: maximise efficacy_signal
+         *   integrity   — toxicity limit: suppress safety_alert
+         *   exploration — try new formulations (represented as new X_sc tokens)
+         */
+        @lambda[9] 'openpsi_drives {
+
+            drive_comp{3}, drive_integ{3}, drive_expl{2};
+
+            /*
+             * Competence drive satisfied: efficacy_signal present
+             * → reinforce coupling (increase X_sc dose proxy)
+             */
+            [drive_comp, efficacy_signal -> drive_comp, X_sc]'openpsi_drives;
+
+            /*
+             * Integrity drive triggered: safety_alert → reduce dose
+             */
+            [drive_integ, safety_alert -> drive_integ, X_sc, @d]'openpsi_drives;
+
+            /*
+             * Exploration drive: try alternative vehicle (perturb X_sc)
+             */
+            [drive_expl -> X_sc, X_ve, drive_expl]'openpsi_drives;
+
+            /* Drive satiation: competing drives balance each other */
+            [drive_comp, drive_integ -> drive_comp, drive_integ]'openpsi_drives;
+        }
+
+    } /* end agent_arena skin_pbpk_core */
+
+    /* ── Emergence: therapeutic window detected ─────────────────────────
+     *
+     * When PLN confirms efficacy AND OpenPsi integrity is satisfied
+     * (no safety_alert), emergence event dissolves intermediate chambers
+     * and promotes the optimal dosing state.
+     */
+    @emergence pbpk_emergence : Λ_pln × Λ_openpsi --> Λ_pbpk {
+        when efficacy_confirmed && drive_comp && !safety_alert:
+            dissolve(Λ_pln, Λ_openpsi)
+            --> parent(Λ_pbpk) × rr_salience_high × efficacy_signal;
+    }
+
+    /* ── Constraints ─────────────────────────────────────────────────── */
+    @constraints {
+        κ_mass_balance   : Σ(X_all_compartments) ≤ X_initial_dose;
+        κ_therapeutic_ww : X_blood ∈ [C_eff_min, C_tox_threshold];
+        κ_sc_lag         : flux(SC → VE) > 0 after lag_time_steps;
+        κ_rr_coupling    : ecan_sti ∝ flux_divergence;
+        κ_drives_balance : drive_comp × drive_integ × drive_expl > 0;
+    }
+
+} /* end Θ-system skin_pbpk_engine */
+
+/* ── Execution semantics ──────────────────────────────────────────────── */
+@execution_mode max_parallel_pbpk {
+    ∀ compartment ∈ {sc, ve, dermis, systemic, liver}:
+        apply_permeation_rules(compartment);
+        apply_pln_inference(compartment);
+        apply_ecan_attention(compartment);
+        apply_openpsi_drive(competence, integrity, exploration);
+        update_rr_from_pbpk_results();
+}
+
+/* ── PBPK relevance gradient ─────────────────────────────────────────── */
+@compute_relevance {
+    ∇ℜ_pbpk = lim_t(
+        Σ(flux_high_compartments) / |total_compartments| +
+        0.5 * efficacy_confirmed / (1 + safety_alert) +
+        0.3 * drive_comp / (drive_comp + drive_integ + drive_expl)
+    );
+}

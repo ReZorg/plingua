@@ -1,0 +1,122 @@
+/*
+ * sc_ve_diffusion.pli — Phase 1: Minimum Viable Skin Model
+ *
+ * 1D two-compartment model of transdermal permeation:
+ *
+ *   Donor solution → Stratum Corneum (SC) → Viable Epidermis (VE) → Dermis sink
+ *
+ * Mechanistic basis
+ * ─────────────────
+ * Fickian diffusion is encoded as bidirectional symport-style permeation rules.
+ * Partition coefficient equilibration is modelled as intra-membrane conversion
+ * rules (oil-phase ⇌ aqueous-phase form).  Dermal capillary clearance is a
+ * first-order sink in the VE membrane.
+ *
+ * Reference validation target
+ * ───────────────────────────
+ * Cumulative permeation of caffeine (log P = −0.07, MW = 194 Da) through
+ * full-thickness human skin in a Franz diffusion cell (in vitro, 32 °C,
+ * receiver = PBS pH 7.4).  Literature steady-state flux ≈ 1–3 µg cm⁻² h⁻¹
+ * (Surber & Davis 2002; Kattou et al. 2019).
+ *
+ * Membrane topology
+ * ─────────────────
+ *   Membrane 0  : Environment (donor compartment, infinite source)
+ *   Membrane 1  : Stratum corneum (SC) — rate-limiting lipid barrier
+ *   Membrane 2  : Viable epidermis (VE) — metabolically active layer
+ *   (sink)      : Dermal capillary clearance (dissolution from VE)
+ *
+ * Objects (molecule proxy tokens)
+ * ────────────────────────────────
+ *   X_d   — drug in donor / SC lipid phase  (log P partition favours this form)
+ *   X_aq  — drug in aqueous phase (VE cytoplasm, receptor fluid)
+ *   X_clr — drug cleared to systemic circulation (counting token)
+ *
+ * Parameters (encoded as rule multiplicities / probabilities)
+ * ───────────────────────────────────────────────────────────
+ *   K_sc   — SC permeability coefficient proxy (controls SC→VE flux)
+ *   K_ve   — VE permeability coefficient proxy (controls VE dissolution)
+ *   Kp_sc  — SC/aqueous partition coefficient (X_d ⇌ X_aq at SC boundary)
+ *   Kclr   — Dermal clearance rate constant (first-order sink)
+ *
+ * Run (once bin/plingua / bin/psim are built):
+ *   bin/plingua examples/skin/sc_ve_diffusion.pli -o /tmp/sc_ve.psim
+ *   bin/psim /tmp/sc_ve.psim -steps 200 -v
+ */
+
+@model<transition>
+@include "transition_model.pli"
+
+def main()
+{
+    /*
+     * Membrane topology:
+     *   Outer membrane '1' = stratum corneum (SC)
+     *   Inner membrane '2' = viable epidermis (VE)
+     *
+     *   @mu = [ [ ]'2 ]'1
+     *
+     *   Initial multiset in SC (membrane 1): 20 tokens of X_d (donor load)
+     *   Initial multiset in VE (membrane 2): empty
+     */
+    @mu = [ [ ]'2 ]'1;
+
+    /* Seed SC with donor drug load (represents ~100 µg cm⁻² initial dose) */
+    @ms(1) = X_d*20;
+
+    /* ── SC permeation rules (membrane 1) ───────────────────────────────
+     *
+     * Inward flux: drug crosses SC lipid bilayer into VE aqueous phase.
+     * Modelled as a bidirectional symport-like rule.  The stoichiometry
+     * (1 token per step) approximates first-order Fickian flux.
+     *
+     * Forward (SC → VE):  X_d consumed from SC; X_aq appears in VE.
+     * Rate ∝ K_sc · Kp_sc  (encoded implicitly via rule probability weight).
+     */
+    [X_d [ ]'2 --> [ X_aq ]'2 ]'1;
+
+    /*
+     * Reverse permeation (VE → SC back-diffusion):
+     * Minor flux — drug re-enters SC from VE (relevant at late times).
+     */
+    (?) [X_aq [ ]'2 --> [ X_d ]'2 ]'1;
+
+    /* ── SC partition equilibration (membrane 1) ─────────────────────
+     *
+     * At the SC/aqueous interface drug equilibrates between oil and water
+     * phases.  Caffeine (log P −0.07) sits near unity; retinol (log P 5.7)
+     * would strongly favour X_d.
+     *
+     * Probabilistic rule encodes K_ow-dependent partitioning.
+     */
+    (?) [X_d --> X_aq]'1;   /* oil → aqueous at SC inner face          */
+    (?) [X_aq --> X_d]'1;   /* aqueous → oil  re-partitioning          */
+
+    /* ── VE metabolism / clearance rules (membrane 2) ───────────────
+     *
+     * First-order sink: drug in VE is cleared to dermal capillaries.
+     * X_aq → X_clr  models extraction by dermal microcirculation.
+     * X_clr tokens accumulate as the "cumulative permeation" readout.
+     */
+    [X_aq --> X_clr]'2;
+
+    /*
+     * Optional enzymatic pre-systemic metabolism in VE (e.g. esterase
+     * hydrolysis of prodrugs).  Drug metabolite M does not permeate back.
+     */
+    (?) [X_aq --> M]'2;
+
+    /*
+     * Clearance dissolution: cleared tokens exit VE upward to SC
+     * (representing lymphatic / capillary export, modelled as dissolution
+     * so the counting token is accessible in the outer scope).
+     */
+    [X_clr --> X_clr, @d]'2;
+
+    /* ── Donor replenishment (membrane 1 environment boundary) ───────
+     *
+     * Represents an infinite donor (finite-dose variant: remove this rule).
+     * One replenishment token per step to maintain a pseudo-steady gradient.
+     */
+    [X_aq --> X_d]'1;
+}
