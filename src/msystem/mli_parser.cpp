@@ -47,8 +47,124 @@ static std::string toLower(const std::string& s) {
 	return out;
 }
 
-static bool parseBoolLiteral(const std::string& s) {
-	return toLower(trim(s)) == "true";
+static bool parseBoolLiteral(const std::string& s, bool& value) {
+	std::string lit = toLower(trim(s));
+	if (lit == "true") {
+		value = true;
+		return true;
+	}
+	if (lit == "false") {
+		value = false;
+		return true;
+	}
+	return false;
+}
+
+static std::string stripQuotes(const std::string& s) {
+	std::string t = trim(s);
+	if (t.size() >= 2) {
+		char first = t.front();
+		char last = t.back();
+		if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+			return t.substr(1, t.size() - 2);
+		}
+	}
+	return t;
+}
+
+static std::map<std::string, std::string> parseArgumentMap(const std::string& args) {
+	std::map<std::string, std::string> out;
+	auto parts = split(args, ',');
+	for (size_t i = 0; i < parts.size(); ++i) {
+		const std::string token = trim(parts[i]);
+		size_t eq = token.find('=');
+		if (eq == std::string::npos) continue;
+		std::string key = toLower(trim(token.substr(0, eq)));
+		std::string value = stripQuotes(token.substr(eq + 1));
+		if (!key.empty()) out[key] = value;
+	}
+	return out;
+}
+
+static bool tryParseIntValue(const std::string& text, int& value) {
+	try {
+		size_t idx = 0;
+		int parsed = std::stoi(text, &idx);
+		if (idx != text.size()) return false;
+		value = parsed;
+		return true;
+	} catch (...) {
+		return false;
+	}
+}
+
+static bool tryParseUIntValue(const std::string& text, size_t& value) {
+	try {
+		size_t idx = 0;
+		unsigned long parsed = std::stoul(text, &idx);
+		if (idx != text.size()) return false;
+		value = static_cast<size_t>(parsed);
+		return true;
+	} catch (...) {
+		return false;
+	}
+}
+
+static bool tryParseDoubleValue(const std::string& text, double& value) {
+	try {
+		size_t idx = 0;
+		double parsed = std::stod(text, &idx);
+		if (idx != text.size()) return false;
+		value = parsed;
+		return true;
+	} catch (...) {
+		return false;
+	}
+}
+
+static bool getIntArg(const std::map<std::string, std::string>& args, const std::string& key, int& value, std::string* error = 0) {
+	std::map<std::string, std::string>::const_iterator it = args.find(key);
+	if (it == args.end()) {
+		if (error) *error = "missing required integer argument '" + key + "'";
+		return false;
+	}
+	if (!tryParseIntValue(it->second, value)) {
+		if (error) *error = "invalid integer value for '" + key + "': " + it->second;
+		return false;
+	}
+	return true;
+}
+
+static bool getUIntArg(const std::map<std::string, std::string>& args, const std::string& key, size_t& value, std::string* error = 0) {
+	std::map<std::string, std::string>::const_iterator it = args.find(key);
+	if (it == args.end()) {
+		if (error) *error = "missing required unsigned argument '" + key + "'";
+		return false;
+	}
+	if (!tryParseUIntValue(it->second, value)) {
+		if (error) *error = "invalid unsigned value for '" + key + "': " + it->second;
+		return false;
+	}
+	return true;
+}
+
+static bool getDoubleArg(const std::map<std::string, std::string>& args, const std::string& key, double& value, std::string* error = 0) {
+	std::map<std::string, std::string>::const_iterator it = args.find(key);
+	if (it == args.end()) {
+		if (error) *error = "missing required floating argument '" + key + "'";
+		return false;
+	}
+	if (!tryParseDoubleValue(it->second, value)) {
+		if (error) *error = "invalid floating-point value for '" + key + "': " + it->second;
+		return false;
+	}
+	return true;
+}
+
+static bool getBoolArg(const std::map<std::string, std::string>& args, const std::string& key, bool& value) {
+	std::map<std::string, std::string>::const_iterator it = args.find(key);
+	if (it == args.end()) return false;
+	return parseBoolLiteral(it->second, value);
 }
 
 static std::string stripComments(const std::string& src) {
@@ -216,42 +332,62 @@ bool MliParser::parseGeometryProfile(const std::string& line) {
 }
 
 bool MliParser::parseManifold(const std::string& line) {
-	std::regex re(R"(@manifold\s+(\w+)\s*\(\s*charts\s*=\s*(\d+)\s*,\s*dimension\s*=\s*(\d+)\s*,\s*compact\s*=\s*(true|false)(?:\s*,\s*boundary\s*=\s*(true|false))?\s*\)\s*;)");
+	std::regex re(R"(@manifold\s+(\w+)\s*\(\s*([^\)]*)\)\s*;)");
 	std::smatch m;
 	if (!std::regex_search(line, m, re)) return false;
 
+	std::map<std::string, std::string> args = parseArgumentMap(m[2].str());
 	ManifoldSpec manifold;
 	manifold.name = m[1].str();
-	manifold.charts = std::stoi(m[2].str());
-	manifold.dimension = std::stoi(m[3].str());
-	manifold.compact = parseBoolLiteral(m[4].str());
-	if (m[5].matched) manifold.boundary = parseBoolLiteral(m[5].str());
+	std::string error;
+	if (!getIntArg(args, "charts", manifold.charts, &error)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @manifold " + manifold.name + ": " + error);
+		return false;
+	}
+	if (!getIntArg(args, "dimension", manifold.dimension, &error)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @manifold " + manifold.name + ": " + error);
+		return false;
+	}
+	if (!getBoolArg(args, "compact", manifold.compact)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @manifold " + manifold.name + ": missing or invalid boolean argument 'compact'");
+		return false;
+	}
+	if (args.count("boundary") && !getBoolArg(args, "boundary", manifold.boundary)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @manifold " + manifold.name + ": invalid boolean argument 'boundary'");
+		return false;
+	}
 	system_.manifolds.push_back(manifold);
 	return true;
 }
 
 bool MliParser::parseMetric(const std::string& line) {
-	std::regex re(R"(@metric\s+(\w+)\s*\(\s*type\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*)\s*,\s*signature\s*=\s*([^\),]+)\s*\)\s*;)");
+	std::regex re(R"(@metric\s+(\w+)\s*\(\s*([^\)]*)\)\s*;)");
 	std::smatch m;
 	if (!std::regex_search(line, m, re)) return false;
 
+	std::map<std::string, std::string> args = parseArgumentMap(m[2].str());
 	MetricSpec metric;
 	metric.name = m[1].str();
-	metric.type = m[2].str();
-	metric.signature = trim(m[3].str());
+	std::map<std::string, std::string>::const_iterator typeIt = args.find("type");
+	if (typeIt != args.end()) metric.type = typeIt->second;
+	std::map<std::string, std::string>::const_iterator sigIt = args.find("signature");
+	if (sigIt != args.end()) metric.signature = sigIt->second;
 	system_.metrics.push_back(metric);
 	return true;
 }
 
 bool MliParser::parseConnection(const std::string& line) {
-	std::regex re(R"(@connection\s+(\w+)\s*\(\s*type\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*)(?:\s*,\s*bundle\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*))?\s*\)\s*;)");
+	std::regex re(R"(@connection\s+(\w+)\s*\(\s*([^\)]*)\)\s*;)");
 	std::smatch m;
 	if (!std::regex_search(line, m, re)) return false;
 
+	std::map<std::string, std::string> args = parseArgumentMap(m[2].str());
 	ConnectionSpec connection;
 	connection.name = m[1].str();
-	connection.type = m[2].str();
-	if (m[3].matched) connection.bundle = m[3].str();
+	std::map<std::string, std::string>::const_iterator typeIt = args.find("type");
+	if (typeIt != args.end()) connection.type = typeIt->second;
+	std::map<std::string, std::string>::const_iterator bundleIt = args.find("bundle");
+	if (bundleIt != args.end()) connection.bundle = bundleIt->second;
 	system_.connections.push_back(connection);
 	return true;
 }
@@ -265,33 +401,63 @@ bool MliParser::parseCapability(const std::string& line) {
 }
 
 bool MliParser::parseFlow(const std::string& line) {
-	std::regex re(R"(@flow\s+(\w+)\s*\(\s*type\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*)\s*,\s*step\s*=\s*([0-9.eE+-]+)\s*,\s*iterations\s*=\s*(\d+)(?:\s*,\s*preserve_volume\s*=\s*(true|false))?\s*\)\s*;)");
+	std::regex re(R"(@flow\s+(\w+)\s*\(\s*([^\)]*)\)\s*;)");
 	std::smatch m;
 	if (!std::regex_search(line, m, re)) return false;
 
+	std::map<std::string, std::string> args = parseArgumentMap(m[2].str());
 	FlowSpec flow;
 	flow.name = m[1].str();
-	flow.type = m[2].str();
-	flow.step = std::stod(m[3].str());
-	flow.iterations = std::stoi(m[4].str());
-	if (m[5].matched) flow.preserveVolume = parseBoolLiteral(m[5].str());
+	std::map<std::string, std::string>::const_iterator typeIt = args.find("type");
+	if (typeIt != args.end()) flow.type = typeIt->second;
+	std::string error;
+	if (!getDoubleArg(args, "step", flow.step, &error)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @flow " + flow.name + ": " + error);
+		return false;
+	}
+	if (!getIntArg(args, "iterations", flow.iterations, &error)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @flow " + flow.name + ": " + error);
+		return false;
+	}
+	if (args.count("preserve_volume") && !getBoolArg(args, "preserve_volume", flow.preserveVolume)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @flow " + flow.name + ": invalid boolean argument 'preserve_volume'");
+		return false;
+	}
 	system_.flows.push_back(flow);
 	return true;
 }
 
 bool MliParser::parsePolytope(const std::string& line) {
-	std::regex re(R"(@polytope\s+(\w+)\s*\(\s*dimension\s*=\s*(\d+)\s*,\s*vertices\s*=\s*(\d+)\s*,\s*edges\s*=\s*(\d+)\s*,\s*faces\s*=\s*(\d+)\s*,\s*cells\s*=\s*(\d+)(?:\s*,\s*symmetry\s*=\s*([A-Za-z_][A-Za-z0-9_\-]*))?\s*\)\s*;)");
+	std::regex re(R"(@polytope\s+(\w+)\s*\(\s*([^\)]*)\)\s*;)");
 	std::smatch m;
 	if (!std::regex_search(line, m, re)) return false;
 
+	std::map<std::string, std::string> args = parseArgumentMap(m[2].str());
 	PolytopeSpec poly;
 	poly.name = m[1].str();
-	poly.dimension = std::stoi(m[2].str());
-	poly.incidenceCounts["vertices"] = static_cast<size_t>(std::stoul(m[3].str()));
-	poly.incidenceCounts["edges"] = static_cast<size_t>(std::stoul(m[4].str()));
-	poly.incidenceCounts["faces"] = static_cast<size_t>(std::stoul(m[5].str()));
-	poly.incidenceCounts["cells"] = static_cast<size_t>(std::stoul(m[6].str()));
-	if (m[7].matched) poly.symmetryGroup = m[7].str();
+	std::string error;
+	if (!getIntArg(args, "dimension", poly.dimension, &error)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @polytope " + poly.name + ": " + error);
+		return false;
+	}
+	if (!getUIntArg(args, "vertices", poly.incidenceCounts["vertices"], &error)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @polytope " + poly.name + ": " + error);
+		return false;
+	}
+	if (!getUIntArg(args, "edges", poly.incidenceCounts["edges"], &error)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @polytope " + poly.name + ": " + error);
+		return false;
+	}
+	if (!getUIntArg(args, "faces", poly.incidenceCounts["faces"], &error)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @polytope " + poly.name + ": " + error);
+		return false;
+	}
+	if (!getUIntArg(args, "cells", poly.incidenceCounts["cells"], &error)) {
+		errors_.push_back("line " + std::to_string(lineNum_) + " @polytope " + poly.name + ": " + error);
+		return false;
+	}
+	std::map<std::string, std::string>::const_iterator symmetryIt = args.find("symmetry");
+	if (symmetryIt != args.end()) poly.symmetryGroup = symmetryIt->second;
 	system_.polytopes.push_back(poly);
 	return true;
 }

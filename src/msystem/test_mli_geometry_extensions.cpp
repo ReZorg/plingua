@@ -22,12 +22,12 @@ int main() {
 	const std::string src = R"(
 @msystem<morphogenetic>
 @geometry<projective>;
-@manifold sphere(charts=8, dimension=2, compact=true);
-@metric g(type=riemannian, signature=+++);
-@connection nabla(type=levi_civita, bundle=tangent);
+@manifold sphere(dimension=2, compact=true, charts=8);
+@metric g(signature=+++, type=riemannian);
+@connection nabla(bundle=tangent, type=levi_civita);
 @capability gauge_invariance;
-@flow rf(type=discrete_ricci, step=0.02, iterations=25, preserve_volume=true);
-@polytope c120(dimension=4, vertices=600, edges=1200, faces=720, cells=120, symmetry=H4);
+@flow rf(iterations=25, preserve_volume=true, type=discrete_ricci, step=0.02);
+@polytope c120(cells=120, edges=1200, faces=720, vertices=600, dimension=4, symmetry=H4);
 
 @tiling {
     @glue g1;
