@@ -101,3 +101,32 @@ Complexity levels: **L1 = introductory**, **L2 = intermediate**, **L3 = advanced
 ### Skin model documentation
 
 See `docs/SKIN_MODEL_SPEC.md` for the complete language specification, parameter tables, and validation guidance.
+
+## 7) Skin — Condition-Specific Multiscale Models (v1)
+
+All six condition models are implemented under `examples/skin/conditions/`.
+Each condition provides mild / moderate / severe severity tiers.
+
+| Condition | Severity | Phase 1 (`.pli`) | Phase 3/4 (`.mli`) | Phase 5 (`.rli`) |
+|-----------|----------|-----------------|---------------------|------------------|
+| Atopic Dermatitis | mild | `ad_barrier_mild.pli` | `ad_biology_mild.mli` | `ad_rr.rli` |
+| Atopic Dermatitis | moderate | `ad_barrier_moderate.pli` | `ad_biology_moderate.mli` | `ad_rr.rli` |
+| Atopic Dermatitis | severe | `ad_barrier_severe.pli` | `ad_biology_severe.mli` | `ad_rr.rli` |
+| Acne | mild | — | `acne_sebaceous_mild.mli` | `acne_rr.rli` |
+| Acne | moderate | — | `acne_sebaceous_moderate.mli` | `acne_rr.rli` |
+| Acne | severe | — | `acne_sebaceous_severe.mli` | `acne_rr.rli` |
+| Psoriasis | mild | `pso_barrier_mild.pli` | `pso_biology_mild.mli` | `pso_rr.rli` |
+| Psoriasis | moderate | `pso_barrier_moderate.pli` | `pso_biology_moderate.mli` | `pso_rr.rli` |
+| Psoriasis | severe | `pso_barrier_severe.pli` | `pso_biology_severe.mli` | `pso_rr.rli` |
+| Rosacea | mild | — | `rosa_inflammatory_mild.mli` | `rosa_rr.rli` |
+| Rosacea | moderate | — | `rosa_inflammatory_moderate.mli` | `rosa_rr.rli` |
+| Rosacea | severe | — | `rosa_inflammatory_severe.mli` | `rosa_rr.rli` |
+| Hyperpigmentation | mild | — | `hyper_melanogenesis_mild.mli` | `hyper_rr.rli` |
+| Hyperpigmentation | moderate | — | `hyper_melanogenesis_moderate.mli` | `hyper_rr.rli` |
+| Hyperpigmentation | severe | — | `hyper_melanogenesis_severe.mli` | `hyper_rr.rli` |
+| Photoaging | mild | — | `photo_mmp_mild.mli` | `photo_rr.rli` |
+| Photoaging | moderate | — | `photo_mmp_moderate.mli` | `photo_rr.rli` |
+| Photoaging | severe | — | `photo_mmp_severe.mli` | `photo_rr.rli` |
+
+See `examples/skin/conditions/EXPERIMENT_MATRIX.md` for run commands and
+`docs/SKIN_CONDITIONS_SPEC.md` for the full condition profile schema.
