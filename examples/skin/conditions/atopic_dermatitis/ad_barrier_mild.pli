@@ -1,0 +1,85 @@
+/*
+ * ad_barrier_mild.pli — Atopic Dermatitis Phase 1: Mild Barrier Defect
+ *
+ * Variant of sc_ve_diffusion.pli representing the mild atopic dermatitis (AD)
+ * barrier phenotype:
+ *
+ *   • Ceramide deficiency → SC permeability elevated ~20% (Kp ↑)
+ *   • Mild IL-1β priming in VE (1 token at t = 0)
+ *   • Back-diffusion intact (mild severity — not yet reduced)
+ *
+ * Severity tier: MILD (20–30% perturbation from healthy baseline)
+ *
+ * Biological basis
+ * ────────────────
+ * FLG loss-of-function (e.g. R501X, 2282del4) reduces filaggrin-derived natural
+ * moisturising factor, impairing lamellar body exocytosis and ceramide production.
+ * Elevated TEWL (~10–15 g m⁻² h⁻¹ in mild AD vs ~5 in healthy) increases the
+ * effective drug partitioning into a disrupted SC (higher X_d initial load proxy).
+ * Low-grade type-2 cytokine signalling (IL-4/IL-13) primes NF-κB via IL-1β.
+ *
+ * Parameter deltas from healthy (sc_ve_diffusion.pli)
+ * ─────────────────────────────────────────────────────
+ *   X_d*24   (vs 20)    — ~20% elevated SC load (ceramide-deficient barrier)
+ *   il1b*1 in VE        — mild Th2 cytokine priming at t = 0
+ *
+ * Validation target: caffeine Kp elevated ~1.3× vs healthy
+ *   (Proksch et al. 2006; Elias & Feingold 2006)
+ *
+ * Run:
+ *   bin/plingua examples/skin/conditions/atopic_dermatitis/ad_barrier_mild.pli \
+ *       -I examples -o /tmp/ad_mild.psim
+ *   bin/psim /tmp/ad_mild.psim -steps 200 -v
+ */
+
+@model<transition>
+@include "transition_model.pli"
+
+def main()
+{
+    /*
+     * Membrane topology (same as healthy baseline):
+     *   Membrane 1 = Stratum Corneum (SC) — ceramide-deficient in AD
+     *   Membrane 2 = Viable Epidermis (VE) — Th2-primed, mild inflammation
+     */
+    @mu = [ [ ]'2 ]'1;
+
+    /* SC load elevated due to ceramide deficiency (mild: +20% vs healthy 20) */
+    @ms(1) = X_d*24;
+
+    /* Mild Th2 cytokine priming: one IL-1β token in VE at t = 0 */
+    @ms(2) = il1b*1;
+
+    /* ── SC permeation rules (Membrane 1) ─────────────────────────────
+     *
+     * Ceramide-deficient SC → slightly enhanced forward flux.
+     * In mild AD, one forward rule fires per X_d token (same kinetics
+     * as healthy but more substrate present due to higher X_d*24 load).
+     */
+    [X_d [ ]'2 --> [ X_aq ]'2 ]'1;
+
+    /* Back-diffusion intact in mild AD */
+    (?) [X_aq [ ]'2 --> [ X_d ]'2 ]'1;
+
+    /* SC partition equilibration (same as healthy) */
+    (?) [X_d --> X_aq]'1;
+    (?) [X_aq --> X_d]'1;
+
+    /* ── VE rules (Membrane 2) ─────────────────────────────────────────
+     *
+     * Mild IL-1β cycling (one token persists — mild disease maintains
+     * low-grade inflammation without positive feedback amplification).
+     */
+    [X_aq --> X_clr]'2;
+    (?) [X_aq --> M]'2;
+    [X_clr --> X_clr, @d]'2;
+
+    /* IL-1β low-level persistence (mild: no positive feedback yet) */
+    [il1b --> il1b]'2;
+
+    /* Cytokine mildly elevates VE permeability to drug (subtle effect) */
+    (?) [il1b, X_aq --> X_aq, il1b]'2;
+
+    /* Donor replenishment */
+    [X_aq --> X_d]'1;
+}

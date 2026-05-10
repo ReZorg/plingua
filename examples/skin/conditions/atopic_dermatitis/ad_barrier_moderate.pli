@@ -1,0 +1,77 @@
+/*
+ * ad_barrier_moderate.pli — Atopic Dermatitis Phase 1: Moderate Barrier Defect
+ *
+ * Variant of sc_ve_diffusion.pli for moderate atopic dermatitis:
+ *
+ *   • SC permeability elevated ~50% (ceramide severely reduced, FLG absent)
+ *   • Significant IL-1β + TNF-α priming in VE (Th2/Th22 inflammatory skew)
+ *   • Back-diffusion reduced (inflamed VE traps drug via protein binding)
+ *   • Cytokine-amplified flux rule: IL-1β further increases drug permeation
+ *
+ * Severity tier: MODERATE (50–100% perturbation from healthy baseline)
+ *
+ * Biological basis
+ * ────────────────
+ * Moderate AD (EASI 16–40): nearly complete FLG deficiency, highly disrupted
+ * SC lipid lamellar structure.  TEWL ~20–30 g m⁻² h⁻¹.  Serum IgE elevated;
+ * IL-4/IL-13 chronically elevated → SOCS3-mediated downregulation of ceramide
+ * synthases CerS3/CerS4.  TNF-α from keratinocytes amplifies NF-κB cascade.
+ *
+ * Parameter deltas from healthy baseline:
+ *   X_d*30    (vs 20) — 50% elevated SC drug loading
+ *   il1b*3 in VE      — Th2 cytokine burden (moderate)
+ *   tnfa*1 in VE      — keratinocyte-derived TNF-α
+ *   back_diffusion: absent (inflamed VE retains drug via protein binding)
+ *   +1 cytokine-flux amplification rule in VE
+ *
+ * Validation target: caffeine Kp elevated ~1.5–2× vs healthy
+ *
+ * Run:
+ *   bin/plingua examples/skin/conditions/atopic_dermatitis/ad_barrier_moderate.pli \
+ *       -I examples -o /tmp/ad_mod.psim
+ *   bin/psim /tmp/ad_mod.psim -steps 200 -v
+ */
+
+@model<transition>
+@include "transition_model.pli"
+
+def main()
+{
+    @mu = [ [ ]'2 ]'1;
+
+    /* Moderate AD: 50% more SC drug loading vs healthy */
+    @ms(1) = X_d*30;
+
+    /* Moderate Th2 cytokine burden in VE at t = 0 */
+    @ms(2) = il1b*3, tnfa*1;
+
+    /* ── SC permeation rules ──────────────────────────────────────────── */
+
+    /* Enhanced forward flux (ceramide-severely-deficient barrier) */
+    [X_d [ ]'2 --> [ X_aq ]'2 ]'1;
+
+    /* Back-diffusion ABSENT in moderate AD (trapped by protein binding) */
+    /* (?) [X_aq [ ]'2 --> [ X_d ]'2 ]'1;   <-- disabled for moderate AD */
+
+    /* SC partition equilibration */
+    (?) [X_d --> X_aq]'1;
+    (?) [X_aq --> X_d]'1;
+
+    /* ── VE rules ─────────────────────────────────────────────────────── */
+
+    [X_aq --> X_clr]'2;
+    (?) [X_aq --> M]'2;
+    [X_clr --> X_clr, @d]'2;
+
+    /* Moderate IL-1β positive feedback (Th2 skew: IL-1β self-amplifies) */
+    [il1b --> il1b, il1b]'2;
+
+    /* TNF-α cycling (moderate persistence) */
+    [tnfa --> tnfa]'2;
+
+    /* Cytokine-amplified drug flux: IL-1β disrupts tight junctions → more drug */
+    [il1b, X_aq --> X_aq, X_aq, il1b]'2;
+
+    /* Donor replenishment */
+    [X_aq --> X_d]'1;
+}

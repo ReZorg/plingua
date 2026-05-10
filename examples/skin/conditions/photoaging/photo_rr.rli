@@ -1,0 +1,123 @@
+/*
+ * photo_rr.rli — Photoaging Phase 5: R-Lingua Formulation Calibration
+ *
+ * R-Lingua model for optimising topical formulation in photoaging.
+ *
+ * Condition profile changes vs healthy skin_rr.rli
+ * ─────────────────────────────────────────────────
+ *   Triad B (Arena):
+ *     constraint_clarity ↓   (0.80 → 0.60): photodamaged SC (thickened, rough)
+ *     affordance_density ↑↑  (0.70 → 0.90): RAR/RXR, SIRT1, fibroblast targets
+ *     feedback_latency   ↑↑↑ (0.45 → 0.85): collagen remodelling = months
+ *
+ *   Triad C:
+ *     coupling_strength  ~ (0.35 → 0.45): modestly impaired SC
+ *     reciprocal_shaping ↑↑ (0.30 → 0.72): retinol fully reshapes ECM biology
+ *
+ * Agents for photoaging:
+ *   f_ret_lipo — RAR/AP-1 MMP inhibition + collagen synthesis (primary)
+ *   f_nia_aq   — SIRT1/NAD⁺ + anti-glycation (secondary)
+ *
+ * Expected grip outcomes:
+ *   Retinol ↔ dermis: grip_index ≥ 0.55 (fibroblast RAR = primary target)
+ *   NIA ↔ dermis:     grip_index ≥ 0.48 (SIRT1 + anti-glycation in fibroblast)
+ *
+ * Run:
+ *   bin/rlingua examples/skin/conditions/photoaging/photo_rr.rli \
+ *       -s 300 -v -o /tmp/photo_grip_report.json
+ */
+
+@rmodel<relevance_realization>
+
+@ennead {
+    @triad_a {
+        identity_continuity  = 0.80;
+        skill_readiness      = 0.72;
+        /* Retinol: anti-MMP + collagen = very high potency; NIA: SIRT1 moderate */
+        motivational_valence = 0.82;
+    }
+    @triad_b {
+        /* Photodamaged SC: thickened, roughened, slight barrier impairment */
+        constraint_clarity = 0.60;
+        /* RAR/RXR (keratinocyte + fibroblast), SIRT1, collagen targets rich */
+        affordance_density = 0.90;
+        /* Collagen remodelling: months to observe clinical response */
+        feedback_latency   = 0.85;
+    }
+    @triad_c {
+        /* Modestly impaired SC in photoaging */
+        coupling_strength  = 0.45;
+        /* Retinol completely reshapes ECM biology (RAR transcriptional switch) */
+        reciprocal_shaping = 0.72;
+        adaptive_fit       = 0.62;
+    }
+}
+
+@constraints {
+    grip_threshold        = 0.30;
+    /* Retinol + NIA synergy (MMP inhibition + NAD⁺) → emergence */
+    emergence_sensitivity = 0.65;
+    /* Long convergence needed: collagen remodelling months */
+    convergence_window    = 200;
+    /* RAR receptor downregulation slow (RAR is a nuclear receptor) */
+    affordance_decay      = 0.003;
+    salience_threshold    = 0.04;
+}
+
+def main() {
+
+    /* Retinol (liposome) — RAR-mediated MMP inhibition + collagen synthesis */
+    @agent id=f_ret_lipo  label="Retinol_liposome_0p3pct_aging"
+           salience=0.90   affordance=1.7;
+
+    /* Niacinamide — SIRT1/NAD⁺ anti-aging + anti-glycation (secondary) */
+    @agent id=f_nia_aq    label="Niacinamide_gel_5pct_aging"
+           salience=0.82   affordance=1.5;
+
+    /* SC: photodamaged, slightly impaired (actinic keratosis risk) */
+    @arena id=a_sc      label="SC_photodamaged"
+           salience=0.70  affordance=1.0;
+
+    /* VE: keratinocytes — RAR/RXR target, retinoid responsive */
+    @arena id=a_ve      label="VE_photoaged"
+           salience=0.82  affordance=1.7;
+
+    /* Dermis: fibroblasts — primary ECM target; highest receptor density */
+    @arena id=a_dermis  label="Dermis_photoaged_fibroblast"
+           salience=0.95  affordance=2.2;   /* primary therapeutic arena */
+
+    @coupling {
+
+        /* Retinol → SC: liposome enhances SC penetration */
+        f_ret_lipo <-> a_sc     :: co_constitution strength=0.75;
+
+        /* Retinol ↔ VE: RAR/RXR → retinol responsive program */
+        f_ret_lipo <-> a_ve     :: co_constitution strength=0.80;
+
+        /* Retinol ↔ dermis: fibroblast RAR + collagen synthesis — primary */
+        f_ret_lipo <-> a_dermis :: co_constitution strength=0.82;
+
+        /* NIA → SC: moderate barrier benefit */
+        f_nia_aq   ->  a_sc     :: application     strength=0.35;
+
+        /* NIA → VE: keratinocyte SIRT1 / antioxidant */
+        f_nia_aq   ->  a_ve     :: application     strength=0.65;
+
+        /* NIA ↔ dermis: fibroblast SIRT1 + anti-glycation — secondary target */
+        f_nia_aq   <-> a_dermis :: co_constitution strength=0.78;
+
+        /* Cross-layer cascade */
+        a_sc     ->  a_ve     :: application strength=0.65;
+        a_ve     ->  a_dermis :: application strength=0.72;   /* VE→dermis strong */
+    }
+}
+
+@observe {
+    sample_period = 12;
+    report_fields = grip_index,
+                    ennead_balance,
+                    coupling_strength,
+                    adaptive_fit,
+                    relevance_gradient,
+                    emergence_score;
+}

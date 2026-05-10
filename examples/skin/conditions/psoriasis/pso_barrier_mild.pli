@@ -1,0 +1,62 @@
+/*
+ * pso_barrier_mild.pli — Psoriasis Phase 1: Mild Barrier Permeability
+ *
+ * Variant of sc_ve_diffusion.pli for mild psoriasis:
+ *
+ *   • SC permeability elevated ~10% (parakeratotic SC slightly disrupted)
+ *   • IL-17 proxy (Th17 cytokine) primes VE (1 token at t = 0)
+ *   • Mild IL-1β from keratinocyte cytokine secretion
+ *   • Hyperproliferation signal (prolif) present in VE
+ *   • Back-diffusion intact
+ *
+ * Severity tier: MILD
+ *
+ * Biological basis
+ * ────────────────
+ * Mild psoriasis (PASI < 10): localised plaques, slightly thickened parakeratotic
+ * SC (retention of keratinocyte nuclei → incomplete cornification).
+ * Th17 response: IL-17A drives keratinocyte production of CXCL8/IL-8, S100A8/9.
+ * SC, while thickened, is still partially functional.  TEWL mildly elevated.
+ *
+ * Run:
+ *   bin/plingua examples/skin/conditions/psoriasis/pso_barrier_mild.pli \
+ *       -I examples -o /tmp/pso_mild.psim
+ *   bin/psim /tmp/pso_mild.psim -steps 200 -v
+ */
+
+@model<transition>
+@include "transition_model.pli"
+
+def main()
+{
+    @mu = [ [ ]'2 ]'1;
+
+    /* Mild PSO: slight SC thickening → modest elevated drug accumulation */
+    @ms(1) = X_d*22;
+
+    /* Mild Th17 cytokine + hyperproliferation priming in VE */
+    @ms(2) = il17*1, prolif*1;
+
+    /* ── SC permeation rules ──────────────────────────────────────────── */
+    [X_d [ ]'2 --> [ X_aq ]'2 ]'1;
+
+    /* Back-diffusion intact in mild PSO */
+    (?) [X_aq [ ]'2 --> [ X_d ]'2 ]'1;
+
+    (?) [X_d --> X_aq]'1;
+    (?) [X_aq --> X_d]'1;
+
+    /* ── VE rules ─────────────────────────────────────────────────────── */
+    [X_aq --> X_clr]'2;
+    (?) [X_aq --> M]'2;
+    [X_clr --> X_clr, @d]'2;
+
+    /* IL-17 cycling (mild: low-grade Th17 response) */
+    [il17 --> il17]'2;
+
+    /* Hyperproliferation signal cycling (mild: basal level) */
+    [prolif --> prolif]'2;
+
+    /* Donor replenishment */
+    [X_aq --> X_d]'1;
+}

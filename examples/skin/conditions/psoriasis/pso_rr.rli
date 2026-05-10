@@ -1,0 +1,121 @@
+/*
+ * pso_rr.rli — Psoriasis Phase 5: R-Lingua Formulation Calibration
+ *
+ * R-Lingua model for optimising topical formulation strategy in psoriasis.
+ *
+ * Condition profile changes vs healthy skin_rr.rli
+ * ─────────────────────────────────────────────────
+ *   Triad B (Arena):
+ *     constraint_clarity ↓↓↓ (0.80 → 0.25): severely disrupted parakeratotic SC
+ *     affordance_density ↑↑  (0.70 → 0.88): RAR/RXR, SIRT1 targets upregulated
+ *     feedback_latency   ↑   (0.45 → 0.65): IL-17 loop long latency
+ *
+ *   Triad C:
+ *     coupling_strength  ↑↑  (0.35 → 0.65): high permeability plaque
+ *     reciprocal_shaping ↑   (0.30 → 0.60): retinol reshapes differentiation
+ *
+ * Agents for PSO:
+ *   f_ret_lipo   — retinoid rescue (cornification, MMP inhibition)
+ *   f_nia_aq     — SIRT1/NF-κB anti-inflammatory
+ *
+ * Expected grip outcomes:
+ *   Retinol ↔ VE:   grip_index ≥ 0.60 (RAR/RXR differentiation rescue)
+ *   NIA ↔ VE:       grip_index ≥ 0.55 (SIRT1 anti-IL-17)
+ *
+ * Run:
+ *   bin/rlingua examples/skin/conditions/psoriasis/pso_rr.rli \
+ *       -s 300 -v -o /tmp/pso_grip_report.json
+ */
+
+@rmodel<relevance_realization>
+
+@ennead {
+    @triad_a {
+        identity_continuity  = 0.80;
+        skill_readiness      = 0.70;
+        /* PSO: retinoid potency high for cornification; NIA for inflammation */
+        motivational_valence = 0.80;
+    }
+    @triad_b {
+        /* Severely disrupted parakeratotic SC (near-absent LB) */
+        constraint_clarity = 0.25;
+        /* RAR/RXR, SIRT1 highly expressed in psoriatic keratinocytes */
+        affordance_density = 0.88;
+        /* IL-17 loop: slow feedback (Th17 response latency) */
+        feedback_latency   = 0.65;
+    }
+    @triad_c {
+        /* High Kp through plaque SC */
+        coupling_strength  = 0.65;
+        /* Retinol reshapes differentiation programme */
+        reciprocal_shaping = 0.60;
+        adaptive_fit       = 0.55;
+    }
+}
+
+@constraints {
+    grip_threshold        = 0.25;
+    /* Binary responder/non-responder dynamics in PSO */
+    emergence_sensitivity = 0.72;
+    convergence_window    = 150;
+    affordance_decay      = 0.006;
+    salience_threshold    = 0.04;
+}
+
+def main() {
+
+    /* Retinol (liposome) — primary cornification rescue */
+    @agent id=f_ret_lipo  label="Retinol_liposome_0p3pct_PSO"
+           salience=0.88   affordance=1.5;
+
+    /* Niacinamide — SIRT1/NF-κB anti-inflammatory */
+    @agent id=f_nia_aq    label="Niacinamide_gel_5pct_PSO"
+           salience=0.82   affordance=1.5;
+
+    /* SC: parakeratotic, high permeability, low selectivity */
+    @arena id=a_sc      label="SC_PSO_parakeratotic"
+           salience=0.80  affordance=1.3;
+
+    /* VE: primary target — RAR/RXR + SIRT1 + IL-17 targets */
+    @arena id=a_ve      label="VE_PSO_inflamed"
+           salience=0.95  affordance=2.0;
+
+    /* Dermis: fibroblast collagen targets (secondary) */
+    @arena id=a_dermis  label="Dermis_PSO"
+           salience=0.65  affordance=1.5;
+
+    @coupling {
+
+        /* Retinol → SC: liposome penetrates plaque SC well */
+        f_ret_lipo <-> a_sc     :: co_constitution strength=0.78;
+
+        /* Retinol ↔ VE: RAR/RXR differentiation rescue — primary */
+        f_ret_lipo <-> a_ve     :: co_constitution strength=0.82;
+
+        /* Retinol → dermis: collagen support (secondary) */
+        f_ret_lipo ->  a_dermis :: application     strength=0.38;
+
+        /* NIA → SC: modest affinity but barrier benefit */
+        f_nia_aq   ->  a_sc     :: application     strength=0.35;
+
+        /* NIA ↔ VE: SIRT1/NF-κB → IL-17 suppression */
+        f_nia_aq   <-> a_ve     :: co_constitution strength=0.85;
+
+        /* NIA → dermis */
+        f_nia_aq   ->  a_dermis :: application     strength=0.55;
+
+        /* Cross-layer cascade (plaque SC highly permeable) */
+        a_sc     ->  a_ve     :: application strength=0.88;
+        a_ve     ->  a_dermis :: application strength=0.58;
+    }
+}
+
+@observe {
+    sample_period = 12;
+    report_fields = grip_index,
+                    ennead_balance,
+                    coupling_strength,
+                    adaptive_fit,
+                    relevance_gradient,
+                    emergence_score;
+}
