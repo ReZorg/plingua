@@ -89,6 +89,7 @@
 @floating niacinamide(mobility=5.5, radius=0.04, concentration=50);
 @floating nmn(mobility=4.5, radius=0.05, concentration=0);
 @floating nad_plus(mobility=4.0, radius=0.06, concentration=0);
+/* NADH is not explicitly tracked; NAD⁺ is recycled via niacinamide salvage only */
 
 /* Melanin synthesis: mildly elevated substrates */
 @floating tyrosine(mobility=6, radius=0.04, concentration=15);        /* healthy=10, mild=15 */
@@ -136,11 +137,9 @@
 /* ── Rules ────────────────────────────────────────────────────────────────── */
 def main() {
 
-    /* NAD⁺ biosynthesis */
+    /* NAD⁺ biosynthesis (niacinamide salvage pathway) */
     p_nmns: niacinamide --> nmn;
     p_nmnat: nmn --> nad_plus;
-    nad_plus --> nadh;
-    nadh --> nad_plus;
 
     /* SIRT1 anti-inflammatory */
     p_sirt1: nad_plus, nfkb_active --> nad_plus, nfkb_inact;

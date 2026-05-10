@@ -80,7 +80,7 @@
 @floating niacinamide(mobility=5.5, radius=0.04, concentration=50);
 @floating nmn(mobility=4.5, radius=0.05, concentration=0);
 @floating nad_plus(mobility=4.0, radius=0.06, concentration=0);
-@floating nadh(mobility=4.0, radius=0.06, concentration=0);
+/* NADH is not explicitly tracked; NAD⁺ is recycled via niacinamide salvage only */
 
 @floating tyrosine(mobility=6, radius=0.04, concentration=22);        /* moderate=22 */
 @floating dopa(mobility=5, radius=0.05, concentration=0);
@@ -118,11 +118,9 @@
 
 def main() {
 
-    /* NAD⁺ biosynthesis */
+    /* NAD⁺ biosynthesis (niacinamide salvage pathway) */
     p_nmns: niacinamide --> nmn;
     p_nmnat: nmn --> nad_plus;
-    nad_plus --> nadh;
-    nadh --> nad_plus;
     p_sirt1: nad_plus, nfkb_active --> nad_plus, nfkb_inact;
     nfkb_active --> il8, mcp1;
     p_sirt1: nad_plus, il8  --> nad_plus;
