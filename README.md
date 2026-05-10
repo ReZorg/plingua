@@ -297,5 +297,32 @@ examples/
 ├── msystem/          # M-Lingua models (6 examples)
 ├── rr/               # RR demos and models
 ├── opencog/          # OpenCog P-Lingua models (6 subsystems)
+├── skin/             # Multiscale cosmeceutical skin model (phases 1–5)
+│   ├── conditions/   # Condition-specific variants (6 conditions × 3 severities)
+│   │   ├── atopic_dermatitis/  # AD barrier defect + Th2 inflammatory model
+│   │   ├── acne/               # Sebaceous + innate inflammatory model
+│   │   ├── psoriasis/          # Hyperproliferative + Th17 inflammatory model
+│   │   ├── rosacea/            # Neurovascular + innate inflammatory model
+│   │   ├── hyperpigmentation/  # Melanogenesis + melanosome transfer model
+│   │   └── photoaging/         # MMP/ECM + oxidative stress model
+│   └── actives/      # CBD, retinol, niacinamide, AHA active modules
 └── cytos_xml/        # Cytos reference XML (8 examples + schema)
 ```
+
+### Skin Condition Models
+
+Six clinically validated skin conditions are modeled as parameterized perturbations
+of the healthy multiscale skin baseline.  Each condition implements **mild / moderate
+/ severe** severity tiers and maps to the appropriate DSL phases:
+
+| Condition | Pathophysiology | Primary agents | Key model files |
+|-----------|----------------|----------------|-----------------|
+| Atopic Dermatitis | Barrier defect + Th2 inflammatory | CBD, Niacinamide | `ad_barrier_*.pli`, `ad_biology_*.mli`, `ad_rr.rli` |
+| Acne | Sebaceous + innate inflammatory | CBD, AHA | `acne_sebaceous_*.mli`, `acne_rr.rli` |
+| Psoriasis | Hyperproliferative + Th17 | Retinol, Niacinamide | `pso_barrier_*.pli`, `pso_biology_*.mli`, `pso_rr.rli` |
+| Rosacea | Neurovascular + innate inflammatory | CBD, Niacinamide | `rosa_inflammatory_*.mli`, `rosa_rr.rli` |
+| Hyperpigmentation | Melanogenesis + melanosome transfer | Niacinamide, AHA | `hyper_melanogenesis_*.mli`, `hyper_rr.rli` |
+| Photoaging | MMP/ECM + oxidative stress | Retinol, Niacinamide | `photo_mmp_*.mli`, `photo_rr.rli` |
+
+See `docs/SKIN_CONDITIONS_SPEC.md` for the full condition profile schema and
+`examples/skin/conditions/EXPERIMENT_MATRIX.md` for the cross-condition runbook.

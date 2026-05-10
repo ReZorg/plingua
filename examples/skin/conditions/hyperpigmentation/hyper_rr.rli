@@ -1,0 +1,122 @@
+/*
+ * hyper_rr.rli — Hyperpigmentation Phase 5: R-Lingua Formulation Calibration
+ *
+ * R-Lingua model for optimising topical formulation in hyperpigmentation.
+ *
+ * Condition profile changes vs healthy skin_rr.rli
+ * ─────────────────────────────────────────────────
+ *   Triad B (Arena):
+ *     constraint_clarity ↑   (0.80 → 0.85): SC barrier generally intact in PIH
+ *     affordance_density ↑↑  (0.70 → 0.92): PAR-2, MC1R, TYR targets abundant
+ *     feedback_latency   ↑↑  (0.45 → 0.75): melanin turnover is slow (weeks–months)
+ *
+ *   Triad C:
+ *     coupling_strength  ~ (0.35 → 0.40): normal SC (barrier intact)
+ *     reciprocal_shaping ↑↑ (0.30 → 0.70): NIA reshapes PAR-2/melanogenesis
+ *
+ * Agents for hyperpigmentation:
+ *   f_nia_aq  — PAR-2 block + anti-inflammatory (primary)
+ *   f_aha_gel — accelerated epidermal turnover / exfoliation (secondary)
+ *
+ * Expected grip outcomes:
+ *   NIA ↔ VE:  grip_index ≥ 0.70 (PAR-2 direct block in melanocyte–keratinocyte)
+ *   AHA ↔ SC:  grip_index ≥ 0.55 (exfoliation accelerates pigment shedding)
+ *
+ * Run:
+ *   bin/rlingua examples/skin/conditions/hyperpigmentation/hyper_rr.rli \
+ *       -s 300 -v -o /tmp/hyper_grip_report.json
+ */
+
+@rmodel<relevance_realization>
+
+@ennead {
+    @triad_a {
+        identity_continuity  = 0.82;
+        skill_readiness      = 0.75;
+        /* NIA high potency (PAR-2 block proven); AHA moderate (exfoliation) */
+        motivational_valence = 0.85;
+    }
+    @triad_b {
+        /* SC generally intact in PIH (TEWL normal) */
+        constraint_clarity = 0.85;
+        /* PAR-2, MC1R, TYR targets abundant in inflamed/sun-exposed VE */
+        affordance_density = 0.92;
+        /* Melanin turnover slow: feedback takes weeks */
+        feedback_latency   = 0.75;
+    }
+    @triad_c {
+        /* Normal SC → standard permeability */
+        coupling_strength  = 0.40;
+        /* NIA reshapes melanogenesis (PAR-2 competitive block) */
+        reciprocal_shaping = 0.70;
+        adaptive_fit       = 0.68;
+    }
+}
+
+@constraints {
+    grip_threshold        = 0.35;
+    /* Synergy: NIA (PAR-2 block) + AHA (exfoliation) → emergence */
+    emergence_sensitivity = 0.68;
+    convergence_window    = 150;
+    /* Slow receptor turnover (melanocyte machinery) */
+    affordance_decay      = 0.004;
+    salience_threshold    = 0.04;
+}
+
+def main() {
+
+    /* Niacinamide — PAR-2 block + SIRT1 anti-inflammatory (primary) */
+    @agent id=f_nia_aq   label="Niacinamide_gel_5pct_PIH"
+           salience=0.92  affordance=1.8;
+
+    /* AHA gel — accelerated epidermal turnover (secondary; sheds pigmented cells) */
+    @agent id=f_aha_gel  label="AHA_glycolic_10pct_PIH"
+           salience=0.78  affordance=1.4;
+
+    /* SC: intact in PIH — normal TEWL, good barrier */
+    @arena id=a_sc      label="SC_PIH_intact"
+           salience=0.65  affordance=0.9;
+
+    /* VE: primary arena — melanocytes, PAR-2-expressing keratinocytes */
+    @arena id=a_ve      label="VE_PIH_melanocytes"
+           salience=0.95  affordance=2.1;   /* very high receptor density */
+
+    /* Dermis: fibroblast collagen; less relevant for pigmentation */
+    @arena id=a_dermis  label="Dermis_PIH"
+           salience=0.45  affordance=1.2;
+
+    @coupling {
+
+        /* NIA → SC: moderate penetration (hydrophilic, pores) */
+        f_nia_aq   ->  a_sc     :: application     strength=0.32;
+
+        /* NIA ↔ VE: PAR-2 block + SIRT1 — primary therapeutic action */
+        f_nia_aq   <-> a_ve     :: co_constitution strength=0.95;
+
+        /* NIA → dermis: modest anti-glycation benefit */
+        f_nia_aq   ->  a_dermis :: application     strength=0.42;
+
+        /* AHA ↔ SC: comedolytic/exfoliative — primary AHA action */
+        f_aha_gel  <-> a_sc     :: co_constitution strength=0.82;
+
+        /* AHA → VE: post-exfoliation keratinocyte renewal signal */
+        f_aha_gel  ->  a_ve     :: application     strength=0.60;
+
+        /* AHA → dermis: TGF-β collagen modest benefit */
+        f_aha_gel  ->  a_dermis :: application     strength=0.30;
+
+        /* Cross-layer (normal SC → normal cascade) */
+        a_sc     ->  a_ve     :: application strength=0.65;
+        a_ve     ->  a_dermis :: application strength=0.50;
+    }
+}
+
+@observe {
+    sample_period = 12;
+    report_fields = grip_index,
+                    ennead_balance,
+                    coupling_strength,
+                    adaptive_fit,
+                    relevance_gradient,
+                    emergence_score;
+}

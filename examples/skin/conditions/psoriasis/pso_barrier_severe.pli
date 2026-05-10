@@ -1,0 +1,66 @@
+/*
+ * pso_barrier_severe.pli — Psoriasis Phase 1: Severe Barrier
+ *
+ * Variant of sc_ve_diffusion.pli for severe / erythrodermic psoriasis:
+ *
+ *   • SC permeability elevated ~60% (plaque + erythrodermic disruption)
+ *   • Heavy Th17 cytokine burden (IL-17: 8, IL-1β: 6, TNF-α: 3) in VE
+ *   • Strong hyperproliferation (prolif: 8 tokens)
+ *   • No back-diffusion
+ *   • Multi-cytokine positive feedback (IL-17 + IL-1β amplification)
+ *
+ * Severity tier: SEVERE
+ *
+ * Biological basis
+ * ────────────────
+ * Severe PSO (PASI > 20) or erythrodermic: near-total body surface affected.
+ * IL-17A blockade (ixekizumab, secukinumab) primary drug target validates
+ * the importance of the IL-17 cascade modelled here.
+ * Parakeratotic SC: nearly absent lamellar bodies, no NMF → essentially
+ * non-functional SC barrier → drug enters freely.
+ * TEWL can reach 50+ g m⁻² h⁻¹ in erythrodermic episodes.
+ *
+ * Run:
+ *   bin/plingua examples/skin/conditions/psoriasis/pso_barrier_severe.pli \
+ *       -I examples -o /tmp/pso_sev.psim
+ *   bin/psim /tmp/pso_sev.psim -steps 200 -v
+ */
+
+@model<transition>
+@include "transition_model.pli"
+
+def main()
+{
+    @mu = [ [ ]'2 ]'1;
+
+    @ms(1) = X_d*32;
+
+    /* Heavy cytokine burden — severe / erythrodermic psoriasis */
+    @ms(2) = il17*8, prolif*8, il1b*6, tnfa*3;
+
+    /* ── SC permeation rules ──────────────────────────────────────────── */
+    [X_d [ ]'2 --> [ X_aq ]'2 ]'1;
+
+    /* No back-diffusion (plaque SC near-non-functional) */
+
+    (?) [X_d --> X_aq]'1;
+    (?) [X_aq --> X_d]'1;
+
+    /* ── VE rules ─────────────────────────────────────────────────────── */
+    [X_aq --> X_clr]'2;
+    (?) [X_aq --> M]'2;
+    [X_clr --> X_clr, @d]'2;
+
+    /* Severe Th17 positive feedback */
+    [il17 --> il17, il17]'2;
+    [il1b --> il1b, il1b]'2;
+    [tnfa --> tnfa, tnfa]'2;
+    [prolif --> prolif, prolif]'2;
+
+    /* IL-17 + TNF-α synergistic paracellular permeabilisation */
+    [il17, X_aq --> X_aq, X_aq, il17]'2;
+    [tnfa, X_aq --> X_aq, X_aq, tnfa]'2;
+
+    /* Donor replenishment */
+    [X_aq --> X_d]'1;
+}

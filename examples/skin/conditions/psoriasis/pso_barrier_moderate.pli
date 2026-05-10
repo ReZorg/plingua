@@ -1,0 +1,67 @@
+/*
+ * pso_barrier_moderate.pli — Psoriasis Phase 1: Moderate Barrier
+ *
+ * Variant of sc_ve_diffusion.pli for moderate psoriasis (PASI 10–20):
+ *
+ *   • SC permeability elevated ~30% (parakeratotic plaque thickens but disrupts)
+ *   • Th17 cytokines (IL-17: 4 tokens) + IL-1β (3 tokens) in VE
+ *   • Strong hyperproliferation signal (prolif: 4 tokens)
+ *   • Reduced back-diffusion (thickened parakeratotic SC modifies kinetics)
+ *
+ * Severity tier: MODERATE
+ *
+ * Biological basis
+ * ────────────────
+ * Moderate PSO plaques (PASI 10–20): thick parakeratotic SC (multiple
+ * retained nuclei layers) with Munro's microabscesses (neutrophil
+ * infiltration).  IL-17A/F → CXCL8 → neutrophil recruitment → local
+ * cytokine amplification.  SC is paradoxically more permeable despite
+ * thickening (lipid lamellae disrupted by parakeratosis).
+ *
+ * Run:
+ *   bin/plingua examples/skin/conditions/psoriasis/pso_barrier_moderate.pli \
+ *       -I examples -o /tmp/pso_mod.psim
+ *   bin/psim /tmp/pso_mod.psim -steps 200 -v
+ */
+
+@model<transition>
+@include "transition_model.pli"
+
+def main()
+{
+    @mu = [ [ ]'2 ]'1;
+
+    @ms(1) = X_d*26;
+
+    /* Moderate Th17 + hyperproliferation burden in VE */
+    @ms(2) = il17*4, prolif*4, il1b*3;
+
+    /* ── SC permeation rules ──────────────────────────────────────────── */
+    [X_d [ ]'2 --> [ X_aq ]'2 ]'1;
+
+    /* Back-diffusion reduced (parakeratotic SC modifies drug retention) */
+    /* (?) [X_aq [ ]'2 --> [ X_d ]'2 ]'1;   <-- disabled moderate PSO */
+
+    (?) [X_d --> X_aq]'1;
+    (?) [X_aq --> X_d]'1;
+
+    /* ── VE rules ─────────────────────────────────────────────────────── */
+    [X_aq --> X_clr]'2;
+    (?) [X_aq --> M]'2;
+    [X_clr --> X_clr, @d]'2;
+
+    /* IL-17 self-amplification (Th17 loop — sustained in moderate PSO) */
+    [il17 --> il17, il17]'2;
+
+    /* Hyperproliferation amplification */
+    [prolif --> prolif, prolif]'2;
+
+    /* IL-1β cycling */
+    [il1b --> il1b]'2;
+
+    /* Cytokine-driven paracellular flux (IL-17 disrupts TJs) */
+    [il17, X_aq --> X_aq, X_aq, il17]'2;
+
+    /* Donor replenishment */
+    [X_aq --> X_d]'1;
+}

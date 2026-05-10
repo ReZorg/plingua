@@ -94,6 +94,171 @@ jobs:
           [ "$FAIL" -eq 0 ] || exit 1
 
       # ─────────────────────────────────────────────────────────────────────
+      # Skin condition R-Lingua tests – compile each condition .rli file
+      # (one per condition; severity-independent calibration model).
+      # Uses 50 steps — lightweight for CI stability.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Skin condition R-Lingua tests – compile condition .rli files
+        run: |
+          set -euo pipefail
+          RLINGUA="$GITHUB_WORKSPACE/bin/rlingua"
+          CONDS_ROOT="$GITHUB_WORKSPACE/examples/skin/conditions"
+
+          CONDITION_RLI=(
+            "atopic_dermatitis/ad_rr.rli"
+            "acne/acne_rr.rli"
+            "psoriasis/pso_rr.rli"
+            "rosacea/rosa_rr.rli"
+            "hyperpigmentation/hyper_rr.rli"
+            "photoaging/photo_rr.rli"
+          )
+
+          PASS=0
+          FAIL=0
+
+          for relpath in "${CONDITION_RLI[@]}"; do
+            prog="$CONDS_ROOT/$relpath"
+            label=$(basename "$relpath" .rli)
+            outfile="/tmp/cond_${label}_report.json"
+            echo -n "  rlingua $relpath (50 steps) ... "
+            if "$RLINGUA" "$prog" -s 50 -o "$outfile" \
+                 > /tmp/rlingua_cond_out.txt 2>&1; then
+              if [ -s "$outfile" ]; then
+                echo "PASS"
+                PASS=$((PASS+1))
+              else
+                echo "FAIL (empty output)"
+                cat /tmp/rlingua_cond_out.txt
+                FAIL=$((FAIL+1))
+              fi
+            else
+              echo "FAIL (exit code $?)"
+              cat /tmp/rlingua_cond_out.txt
+              FAIL=$((FAIL+1))
+            fi
+          done
+
+          echo ""
+          echo "Skin condition R-Lingua tests: ${PASS} passed, ${FAIL} failed"
+          [ "$FAIL" -eq 0 ] || exit 1
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Skin condition barrier .pli compilation tests – compile each
+      # condition Phase 1 barrier variant (AD and PSO, all severities)
+      # to verify that plingua accepts the extended membrane topology.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Skin condition barrier .pli compilation tests
+        run: |
+          set -euo pipefail
+          PLINGUA="$GITHUB_WORKSPACE/bin/plingua"
+          EXAMPLES="$GITHUB_WORKSPACE/examples"
+          CONDS_ROOT="$EXAMPLES/skin/conditions"
+
+          BARRIER_PLI=(
+            "atopic_dermatitis/ad_barrier_mild.pli"
+            "atopic_dermatitis/ad_barrier_moderate.pli"
+            "atopic_dermatitis/ad_barrier_severe.pli"
+            "psoriasis/pso_barrier_mild.pli"
+            "psoriasis/pso_barrier_moderate.pli"
+            "psoriasis/pso_barrier_severe.pli"
+          )
+
+          FORMATS=(json bin)
+          PASS=0
+          FAIL=0
+
+          for relpath in "${BARRIER_PLI[@]}"; do
+            prog="$CONDS_ROOT/$relpath"
+            label=$(echo "$relpath" | tr '/' '_' | sed 's/\.pli$//')
+            for fmt in "${FORMATS[@]}"; do
+              outfile="/tmp/cond_${label}.${fmt}"
+              echo -n "  compile $relpath -> $fmt ... "
+              if "$PLINGUA" "$prog" -o "$outfile" -f "$fmt" \
+                   -I "$EXAMPLES" > /tmp/plingua_cond_out.txt 2>&1; then
+                if [ -s "$outfile" ]; then
+                  echo "PASS"
+                  PASS=$((PASS+1))
+                else
+                  echo "FAIL (empty output)"
+                  cat /tmp/plingua_cond_out.txt
+                  FAIL=$((FAIL+1))
+                fi
+              else
+                echo "FAIL (exit code $?)"
+                cat /tmp/plingua_cond_out.txt
+                FAIL=$((FAIL+1))
+              fi
+            done
+          done
+
+          echo ""
+          echo "Skin condition barrier .pli tests: ${PASS} passed, ${FAIL} failed"
+          [ "$FAIL" -eq 0 ] || exit 1
+
+      # ─────────────────────────────────────────────────────────────────────
+      # Skin condition barrier simulation tests – run psim on each
+      # compiled condition binary for a fixed number of deterministic steps.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Skin condition barrier simulation tests
+        run: |
+          set -euo pipefail
+          PLINGUA="$GITHUB_WORKSPACE/bin/plingua"
+          PSIM="$GITHUB_WORKSPACE/bin/psim"
+          EXAMPLES="$GITHUB_WORKSPACE/examples"
+          CONDS_ROOT="$EXAMPLES/skin/conditions"
+
+          BARRIER_PLI=(
+            "atopic_dermatitis/ad_barrier_mild.pli"
+            "atopic_dermatitis/ad_barrier_moderate.pli"
+            "atopic_dermatitis/ad_barrier_severe.pli"
+            "psoriasis/pso_barrier_mild.pli"
+            "psoriasis/pso_barrier_moderate.pli"
+            "psoriasis/pso_barrier_severe.pli"
+          )
+
+          STEPS=5
+          PASS=0
+          FAIL=0
+
+          for relpath in "${BARRIER_PLI[@]}"; do
+            prog="$CONDS_ROOT/$relpath"
+            label=$(echo "$relpath" | tr '/' '_' | sed 's/\.pli$//')
+            binfile="/tmp/cond_${label}_sim.bin"
+            simout="/tmp/cond_${label}_sim.json"
+
+            echo -n "  compile $relpath -> bin ... "
+            if ! "$PLINGUA" "$prog" -o "$binfile" -f bin \
+                  -I "$EXAMPLES" > /tmp/plingua_cond_out.txt 2>&1; then
+              echo "FAIL (compile error)"
+              cat /tmp/plingua_cond_out.txt
+              FAIL=$((FAIL+1))
+              continue
+            fi
+            echo "OK"
+
+            echo -n "  psim $relpath ($STEPS steps) ... "
+            if "$PSIM" "$binfile" -s "$STEPS" -o "$simout" \
+                 > /tmp/psim_cond_out.txt 2>&1; then
+              if [ -s "$simout" ]; then
+                echo "PASS"
+                PASS=$((PASS+1))
+              else
+                echo "FAIL (empty output)"
+                cat /tmp/psim_cond_out.txt
+                FAIL=$((FAIL+1))
+              fi
+            else
+              echo "FAIL (exit code $?)"
+              cat /tmp/psim_cond_out.txt
+              FAIL=$((FAIL+1))
+            fi
+          done
+
+          echo ""
+          echo "Skin condition simulation tests: ${PASS} passed, ${FAIL} failed"
+          [ "$FAIL" -eq 0 ] || exit 1
+
+      # ─────────────────────────────────────────────────────────────────────
       # Unit tests – compile every standalone .pli example to every format
       # and verify that (a) plingua exits 0 and (b) the output file exists.
       # ─────────────────────────────────────────────────────────────────────

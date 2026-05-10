@@ -373,3 +373,50 @@ done
 8. Van Scott EJ, Yu RJ. (1984). Hyperkeratinization, corneocyte cohesion, and alpha hydroxy acids. *J. Am. Acad. Dermatol.* 11(5):867–879.
 9. Otberg N et al. (2004). Variations of hair follicle size and distribution in different body sites. *J. Invest. Dermatol.* 122(1):14–19.
 10. Gilmore BF et al. (2009). Dermal PBPK modelling. *Pharm. Res.* (various).
+
+
+---
+
+## 11. Skin Condition Models
+
+Six clinically validated skin conditions are modeled as parameterized perturbations
+of the healthy baseline described in sections 1–10.  Each condition produces
+directionally validated outputs at all model scales.
+
+For the full condition profile schema, severity tier definitions, per-condition
+biological rationale, acceptance criteria, and run commands, see:
+
+**`docs/SKIN_CONDITIONS_SPEC.md`**
+
+### Condition inventory
+
+| ID  | Condition | Primary phases | Model directory |
+|-----|-----------|---------------|-----------------|
+| AD  | Atopic Dermatitis | Phase 1 + 3 + 5 | `examples/skin/conditions/atopic_dermatitis/` |
+| ACN | Acne | Phase 4 + 5 | `examples/skin/conditions/acne/` |
+| PSO | Psoriasis | Phase 1 + 3 + 5 | `examples/skin/conditions/psoriasis/` |
+| ROS | Rosacea | Phase 4 + 5 | `examples/skin/conditions/rosacea/` |
+| HYP | Hyperpigmentation | Phase 4 + 5 | `examples/skin/conditions/hyperpigmentation/` |
+| PAG | Photoaging | Phase 4 + 5 | `examples/skin/conditions/photoaging/` |
+
+Each condition directory contains mild / moderate / severe severity variants and a
+condition-specific R-Lingua file (`*_rr.rli`) for grip index optimisation.
+
+### Multiscale coupling matrix
+
+The condition × severity × formulation experiment matrix with shell runbook is at:
+
+**`examples/skin/conditions/EXPERIMENT_MATRIX.md`**
+
+### Acceptance criteria summary
+
+| Condition | Phase 1 key metric | Phase 3/4 key metric | Phase 5 key metric |
+|-----------|-------------------|---------------------|-------------------|
+| AD mild | X_clr ↑ ≥ 20% | nfkb_active > 0 | NIA↔VE grip ≥ 0.60 |
+| Acne mild | — | sebum ↑ ≥ 2× | CBD↔SC grip ≥ 0.70 |
+| PSO mild | il17 present | filaggrin ↓ | retinol↔VE grip ≥ 0.60 |
+| Rosacea mild | — | histamine > 0 | CBD↔dermis grip ≥ 0.50 |
+| HYP mild | — | melanosome ↑ ≥ 2× | NIA↔VE grip ≥ 0.70 |
+| PAG mild | — | mmp1 ↑ ≥ 2× | retinol↔dermis grip ≥ 0.55 |
+
+All condition variants must leave the healthy baseline (sections 1–10) **unchanged**.

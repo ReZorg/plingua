@@ -1,0 +1,122 @@
+/*
+ * rosa_rr.rli — Rosacea Phase 5: R-Lingua Formulation Calibration
+ *
+ * R-Lingua model for optimising topical formulation in rosacea.
+ *
+ * Condition profile changes vs healthy skin_rr.rli
+ * ─────────────────────────────────────────────────
+ *   Triad B (Arena):
+ *     constraint_clarity ↓   (0.80 → 0.50): mildly disrupted SC
+ *     affordance_density ↑↑  (0.70 → 0.88): TRPV1/CB2R/SIRT1 upregulated
+ *     feedback_latency   ↑↑  (0.45 → 0.70): histamine/CGRP loop = long latency
+ *
+ *   Triad C:
+ *     coupling_strength  ↑   (0.35 → 0.50): moderate SC permeability
+ *     reciprocal_shaping ↑↑  (0.30 → 0.65): CBD reshapes TRPV1 and mast cell env
+ *
+ * Agents for rosacea:
+ *   f_cbd_oil — CB2R mast cell + TRPV1 desensitisation (primary)
+ *   f_nia_aq  — SIRT1/IL-8 suppression (secondary)
+ *
+ * Expected grip outcomes:
+ *   CBD ↔ dermis: grip_index ≥ 0.55 (mast cell CB2R target in dermis)
+ *   NIA ↔ VE:    grip_index ≥ 0.55 (SIRT1/NF-κB in keratinocytes)
+ *
+ * Run:
+ *   bin/rlingua examples/skin/conditions/rosacea/rosa_rr.rli \
+ *       -s 300 -v -o /tmp/rosa_grip_report.json
+ */
+
+@rmodel<relevance_realization>
+
+@ennead {
+    @triad_a {
+        identity_continuity  = 0.82;
+        skill_readiness      = 0.72;
+        /* Rosacea: CBD TRPV1 desensitisation + CB2R = high potency */
+        motivational_valence = 0.82;
+    }
+    @triad_b {
+        /* SC mildly disrupted (rosacea is more dermis/VE inflammatory) */
+        constraint_clarity = 0.50;
+        /* TRPV1, CB2R, SIRT1 targets upregulated in rosacea dermis/VE */
+        affordance_density = 0.88;
+        /* Histamine/CGRP loop: long feedback latency (flush can persist hours) */
+        feedback_latency   = 0.70;
+    }
+    @triad_c {
+        /* Moderate SC permeability (SC not severely disrupted in early rosacea) */
+        coupling_strength  = 0.50;
+        /* CBD/NIA reshape TRPV1 sensitivity and mast cell state */
+        reciprocal_shaping = 0.65;
+        adaptive_fit       = 0.58;
+    }
+}
+
+@constraints {
+    grip_threshold        = 0.28;
+    /* Flush/flare dynamics: emergence when TRPV1 + CB2R both engaged */
+    emergence_sensitivity = 0.55;
+    convergence_window    = 130;
+    /* Receptor downregulation moderate in rosacea */
+    affordance_decay      = 0.007;
+    salience_threshold    = 0.04;
+}
+
+def main() {
+
+    /* CBD oil — TRPV1 desensitisation + CB2R mast cell suppression (primary) */
+    @agent id=f_cbd_oil  label="CBD_oil_1pct_rosacea"
+           salience=0.88  affordance=1.6;
+
+    /* Niacinamide — SIRT1/NF-κB → IL-8/MCP-1 suppression (secondary) */
+    @agent id=f_nia_aq   label="Niacinamide_gel_5pct_rosacea"
+           salience=0.82  affordance=1.5;
+
+    /* SC: mildly affected in rosacea (TEWL mildly elevated) */
+    @arena id=a_sc      label="SC_rosacea"
+           salience=0.70  affordance=1.0;
+
+    /* VE: TRPV1-expressing keratinocytes, primary sensory inflammatory locus */
+    @arena id=a_ve      label="VE_rosacea_TRPV1"
+           salience=0.85  affordance=1.8;
+
+    /* Dermis: mast cells, angiogenic vasculature — primary CB2R target arena */
+    @arena id=a_dermis  label="Dermis_rosacea_mastcell"
+           salience=0.90  affordance=2.0;
+
+    @coupling {
+
+        /* CBD ↔ SC: moderate affinity (log P 6.3 but rosacea SC less affected) */
+        f_cbd_oil  <-> a_sc     :: co_constitution strength=0.72;
+
+        /* CBD ↔ VE: TRPV1 desensitisation in sensory keratinocytes */
+        f_cbd_oil  <-> a_ve     :: co_constitution strength=0.75;
+
+        /* CBD ↔ dermis: mast cell CB2R — primary rosacea target (most important) */
+        f_cbd_oil  <-> a_dermis :: co_constitution strength=0.80;
+
+        /* NIA → SC: low affinity but barrier benefit */
+        f_nia_aq   ->  a_sc     :: application     strength=0.30;
+
+        /* NIA ↔ VE: SIRT1/IL-8 (moderate priority) */
+        f_nia_aq   <-> a_ve     :: co_constitution strength=0.80;
+
+        /* NIA → dermis: mast cell NF-κB modulation */
+        f_nia_aq   ->  a_dermis :: application     strength=0.60;
+
+        /* Cross-layer cascade */
+        a_sc     ->  a_ve     :: application strength=0.68;
+        a_ve     ->  a_dermis :: application strength=0.72;  /* VE→dermis higher in rosacea */
+    }
+}
+
+@observe {
+    sample_period = 12;
+    report_fields = grip_index,
+                    ennead_balance,
+                    coupling_strength,
+                    adaptive_fit,
+                    relevance_gradient,
+                    emergence_score;
+}

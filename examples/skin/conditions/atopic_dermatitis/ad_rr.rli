@@ -1,0 +1,147 @@
+/*
+ * ad_rr.rli — Atopic Dermatitis Phase 5: R-Lingua Formulation Calibration
+ *
+ * Relevance Realization model for optimising topical formulation strategy
+ * in atopic dermatitis (AD).  Extends skin_rr.rli with condition-specific
+ * ennead values and coupling strengths.
+ *
+ * Condition profile changes vs healthy skin_rr.rli
+ * ─────────────────────────────────────────────────
+ *   Triad B (Arena — Skin Layer):
+ *     constraint_clarity ↓↓ (0.80 → 0.35): heavily disrupted SC barrier
+ *     affordance_density ↑  (0.70 → 0.85): CB2R/TRPV1 upregulated in AD
+ *     feedback_latency   ↑  (0.45 → 0.55): elevated TEWL slows drug egress
+ *
+ *   Triad C (Coupling):
+ *     coupling_strength  ↑  (0.35 → 0.55): AD barrier = higher permeability
+ *     reciprocal_shaping ↑  (0.30 → 0.55): ceramide actives reshape barrier
+ *
+ * Agents modelled for AD:
+ *   f_cbd_oil   — anti-inflammatory, CB2R / TRPV1 ceramide support
+ *   f_nia_aq    — NAD+/SIRT1 anti-inflammatory, barrier lipid upregulation
+ *   (AHA excluded — contraindicated in active AD)
+ *
+ * Expected grip outcomes for AD:
+ *   NIA ↔ VE:   grip_index ≥ 0.60 (NAD⁺ demand high in inflamed VE)
+ *   CBD ↔ VE:   grip_index ≥ 0.50 (CB2R anti-inflammatory + TRPV1 ceramide)
+ *   CBD ↔ SC:   grip_index ~0.60  (high log P → SC lipid accumulation)
+ *
+ * Run:
+ *   bin/rlingua examples/skin/conditions/atopic_dermatitis/ad_rr.rli \
+ *       -s 300 -v -o /tmp/ad_grip_report.json
+ */
+
+@rmodel<relevance_realization>
+
+@ennead {
+    @triad_a {
+        /* Formulation stability: CBD oil stable; NIA gel highly stable */
+        identity_continuity  = 0.80;
+        /* AD bioavailability: disrupted SC → better drug penetration */
+        skill_readiness      = 0.75;
+        /* Therapeutic potency: CBD (anti-itch + ceramide) primary; NIA anti-inflam */
+        motivational_valence = 0.85;
+    }
+    @triad_b {
+        /* Barrier integrity: severely disrupted SC in AD (TEWL ↑↑) */
+        constraint_clarity = 0.35;
+        /* Receptor density: CB2R/TRPV1/PPAR upregulated in AD epidermis */
+        affordance_density = 0.85;
+        /* Clearance: elevated TEWL modifies drug egress dynamics */
+        feedback_latency   = 0.55;
+    }
+    @triad_c {
+        /* Kp elevated (disrupted barrier = higher effective permeability) */
+        coupling_strength  = 0.55;
+        /* Co-adaptation: ceramide-restoring actives reshape the disrupted barrier */
+        reciprocal_shaping = 0.55;
+        /* Target selectivity: CB2R / SIRT1 targets in AD */
+        adaptive_fit       = 0.60;
+    }
+}
+
+@constraints {
+    /* AD grip threshold lower (delivery into disrupted barrier is lossy) */
+    grip_threshold        = 0.25;
+    /* AD therapeutic targets (CB2R, TRPV1) are highly salient */
+    emergence_sensitivity = 0.62;
+    /* Allow longer dynamics (AD chronically inflamed — slow to respond) */
+    convergence_window    = 120;
+    /* Receptor downregulation slower in chronic AD */
+    affordance_decay      = 0.005;
+    salience_threshold    = 0.04;
+}
+
+def main() {
+
+    /* ═══════════════════════════════════════════════════════════════════
+     * FORMULATION AGENTS FOR AD
+     * ═══════════════════════════════════════════════════════════════════
+     * AHA excluded: keratolysis contraindicated in active inflamed AD.
+     * Retinol at standard doses can irritate AD skin → not primary agent.
+     */
+
+    /* CBD oil — primary anti-inflammatory + ceramide support for AD */
+    @agent id=f_cbd_oil  label="CBD_oil_1pct_AD"
+           salience=0.85  affordance=1.7;
+
+    /* Niacinamide gel — NAD⁺/SIRT1 anti-inflammatory, barrier lipid support */
+    @agent id=f_nia_aq   label="Niacinamide_gel_5pct_AD"
+           salience=0.85  affordance=1.6;
+
+    /* ═══════════════════════════════════════════════════════════════════
+     * SKIN ARENA COMPARTMENTS — AD PHENOTYPE
+     * ═══════════════════════════════════════════════════════════════════
+     */
+
+    /* SC: disrupted ceramide barrier — high permeability, low integrity */
+    @arena id=a_sc      label="SC_AD_disrupted"
+           salience=0.85  affordance=1.2;  /* high salience, elevated drug capacity */
+
+    /* VE: Th2-inflamed keratinocytes — CB2R/TRPV1/SIRT1 targets abundant */
+    @arena id=a_ve      label="VE_AD_inflamed"
+           salience=0.90  affordance=1.9;  /* primary therapeutic target in AD */
+
+    /* Dermis: mast cells abundant in AD (CB2R targets) */
+    @arena id=a_dermis  label="Dermis_AD_mastcell"
+           salience=0.75  affordance=1.6;
+
+    /* ═══════════════════════════════════════════════════════════════════
+     * FORMULATION–LAYER COUPLING (AD-specific strengths)
+     * ═══════════════════════════════════════════════════════════════════
+     */
+    @coupling {
+
+        /* CBD ↔ SC: AD disrupted barrier → faster CBD penetration */
+        f_cbd_oil  <-> a_sc     :: co_constitution strength=0.88;
+
+        /* CBD ↔ VE: CB2R anti-inflammatory + TRPV1 ceramide stimulation (primary) */
+        f_cbd_oil  <-> a_ve     :: co_constitution strength=0.72;
+
+        /* CBD → dermis: mast cell CB2R (histamine suppression in AD itch) */
+        f_cbd_oil  ->  a_dermis :: application     strength=0.42;
+
+        /* NIA → SC: poor direct SC affinity but improves barrier integrity */
+        f_nia_aq   ->  a_sc     :: application     strength=0.38;
+
+        /* NIA ↔ VE: SIRT1/NF-κB suppression — primary therapeutic action */
+        f_nia_aq   <-> a_ve     :: co_constitution strength=0.92;
+
+        /* NIA → dermis: moderate — some mast cell NF-κB contribution */
+        f_nia_aq   ->  a_dermis :: application     strength=0.55;
+
+        /* Cross-layer pharmacokinetic cascade */
+        a_sc     ->  a_ve     :: application strength=0.82;  /* disrupted barrier → higher transfer */
+        a_ve     ->  a_dermis :: application strength=0.65;
+    }
+}
+
+@observe {
+    sample_period = 12;
+    report_fields = grip_index,
+                    ennead_balance,
+                    coupling_strength,
+                    adaptive_fit,
+                    relevance_gradient,
+                    emergence_score;
+}

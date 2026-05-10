@@ -1,0 +1,121 @@
+/*
+ * acne_rr.rli — Acne Phase 5: R-Lingua Formulation Calibration
+ *
+ * R-Lingua model for optimising topical formulation in acne vulgaris.
+ *
+ * Condition profile changes vs healthy skin_rr.rli
+ * ─────────────────────────────────────────────────
+ *   Triad B (Arena):
+ *     constraint_clarity ↓  (0.80 → 0.55): sebum-enriched SC, comedone plugs
+ *     affordance_density ↑↑ (0.70 → 0.90): sebocyte PPARγ, CB2R/TRPV1 targets
+ *     feedback_latency   ↑  (0.45 → 0.60): sebum turnover slow
+ *
+ *   Triad C:
+ *     coupling_strength  ↑  (0.35 → 0.55): follicular shunt dominant in acne
+ *     reciprocal_shaping ↑↑ (0.30 → 0.65): CBD/AHA reshape sebaceous micro-env
+ *
+ * Agents for acne:
+ *   f_cbd_oil  — PPARγ sebostatic + CB2R anti-inflammatory
+ *   f_aha_gel  — comedolytic exfoliation + keratolysis
+ *
+ * Expected grip outcomes:
+ *   CBD ↔ SC:  grip_index ≥ 0.70 (follicular shunt delivery, log P 6.3)
+ *   AHA ↔ SC:  grip_index ≥ 0.60 (comedolytic exfoliation target)
+ *
+ * Run:
+ *   bin/rlingua examples/skin/conditions/acne/acne_rr.rli \
+ *       -s 300 -v -o /tmp/acne_grip_report.json
+ */
+
+@rmodel<relevance_realization>
+
+@ennead {
+    @triad_a {
+        identity_continuity  = 0.82;
+        skill_readiness      = 0.78;
+        /* Acne: CBD sebostatic potency high; AHA comedolytic potency high */
+        motivational_valence = 0.85;
+    }
+    @triad_b {
+        /* SC sebum-enriched: partial barrier (comedone plugs impede drug) */
+        constraint_clarity = 0.55;
+        /* Sebocyte PPARγ, CB2R, TRPV1 targets upregulated in acne */
+        affordance_density = 0.90;
+        /* Sebum turnover slow (days–weeks) → slow feedback */
+        feedback_latency   = 0.60;
+    }
+    @triad_c {
+        /* Follicular shunt dominant: CBD log P 6.3 uses this route */
+        coupling_strength  = 0.55;
+        /* CBD/AHA reshape sebum composition and comedone structure */
+        reciprocal_shaping = 0.65;
+        adaptive_fit       = 0.65;
+    }
+}
+
+@constraints {
+    grip_threshold        = 0.30;
+    /* Sebostatic + comedolytic synergy → emergence when both present */
+    emergence_sensitivity = 0.70;
+    convergence_window    = 120;
+    affordance_decay      = 0.007;
+    salience_threshold    = 0.04;
+}
+
+def main() {
+
+    /* CBD in hemp-seed oil — sebostatic (PPARγ) + anti-inflammatory (CB2R) */
+    @agent id=f_cbd_oil  label="CBD_oil_1pct_acne"
+           salience=0.90  affordance=1.8;
+
+    /* AHA gel (glycolic acid 10%) — comedolytic, keratolytic, pH control */
+    @agent id=f_aha_gel  label="AHA_glycolic_10pct"
+           salience=0.85  affordance=1.6;
+
+    /* SC: sebum-enriched, comedone plugged, partially disrupted */
+    @arena id=a_sc      label="SC_acne_sebaceous"
+           salience=0.85  affordance=1.4;   /* follicular shunt dominant */
+
+    /* VE: CB2R/TRPV1/PPARγ target-rich (sebocytes, keratinocytes) */
+    @arena id=a_ve      label="VE_acne_inflamed"
+           salience=0.90  affordance=2.0;
+
+    /* Dermis: mast cell involvement, deeper inflammatory foci in cystic acne */
+    @arena id=a_dermis  label="Dermis_acne"
+           salience=0.60  affordance=1.5;
+
+    @coupling {
+
+        /* CBD ↔ SC: follicular shunt + sebum partitioning (log P 6.3) */
+        f_cbd_oil  <-> a_sc     :: co_constitution strength=0.88;
+
+        /* CBD ↔ VE: CB2R + PPARγ (sebocyte) — primary sebostatic action */
+        f_cbd_oil  <-> a_ve     :: co_constitution strength=0.82;
+
+        /* CBD → dermis: anti-inflammatory in cystic acne */
+        f_cbd_oil  ->  a_dermis :: application     strength=0.40;
+
+        /* AHA ↔ SC: comedolytic keratolysis — primary comedone target */
+        f_aha_gel  <-> a_sc     :: co_constitution strength=0.85;
+
+        /* AHA → VE: post-exfoliation keratinocyte renewal signal */
+        f_aha_gel  ->  a_ve     :: application     strength=0.55;
+
+        /* AHA → dermis: TGF-β collagen stimulation (post-inflammatory repair) */
+        f_aha_gel  ->  a_dermis :: application     strength=0.38;
+
+        /* Cross-layer cascade */
+        a_sc     ->  a_ve     :: application strength=0.75;
+        a_ve     ->  a_dermis :: application strength=0.52;
+    }
+}
+
+@observe {
+    sample_period = 12;
+    report_fields = grip_index,
+                    ennead_balance,
+                    coupling_strength,
+                    adaptive_fit,
+                    relevance_gradient,
+                    emergence_score;
+}

@@ -1,0 +1,84 @@
+/*
+ * ad_barrier_severe.pli — Atopic Dermatitis Phase 1: Severe Barrier Defect
+ *
+ * Variant of sc_ve_diffusion.pli for severe / refractory atopic dermatitis:
+ *
+ *   • SC permeability elevated ~100% (near-absent ceramide barrier)
+ *   • Heavy cytokine burden in VE (IL-1β, TNF-α, NF-κB active)
+ *   • No back-diffusion (maximally disrupted barrier; drug enters freely)
+ *   • Multi-cytokine positive feedback loops in VE
+ *   • Cytokine-amplified flux doubly active (2 rule copies)
+ *
+ * Severity tier: SEVERE (200–400% perturbation from healthy baseline)
+ *
+ * Biological basis
+ * ────────────────
+ * Severe AD (EASI > 40 or IGA 4–5): complete FLG deficiency, absent SC lipid
+ * lamellae, TEWL ≥ 40 g m⁻² h⁻¹ (essentially unimpeded evaporation).
+ * Chronic IL-4/IL-13/IL-31 exposure → near-complete ceramide synthase
+ * suppression → no barrier restoration capacity.
+ * NF-κB constitutively active; mast cells, eosinophils recruited.
+ *
+ * Parameter deltas from healthy baseline:
+ *   X_d*40    (vs 20)   — 100% elevated SC drug loading (absent barrier)
+ *   il1b*6 in VE        — heavy cytokine burden
+ *   tnfa*3 in VE        — keratinocyte-derived + immune cell TNF-α
+ *   nfkb_active*2 in VE — constitutive NF-κB activation
+ *   back_diffusion: absent
+ *   2× cytokine-amplified flux rules
+ *
+ * Validation target: caffeine Kp elevated ~2–4× vs healthy
+ *
+ * Run:
+ *   bin/plingua examples/skin/conditions/atopic_dermatitis/ad_barrier_severe.pli \
+ *       -I examples -o /tmp/ad_sev.psim
+ *   bin/psim /tmp/ad_sev.psim -steps 200 -v
+ */
+
+@model<transition>
+@include "transition_model.pli"
+
+def main()
+{
+    @mu = [ [ ]'2 ]'1;
+
+    /* Severe AD: 100% elevated SC loading — near-absent barrier */
+    @ms(1) = X_d*40;
+
+    /* Heavy cytokine burden + constitutive NF-κB in VE at t = 0 */
+    @ms(2) = il1b*6, tnfa*3, nfkb_active*2;
+
+    /* ── SC permeation rules ──────────────────────────────────────────── */
+
+    /* Unrestricted forward flux (ceramide-absent barrier) */
+    [X_d [ ]'2 --> [ X_aq ]'2 ]'1;
+
+    /* No back-diffusion in severe AD */
+    /* (?) [X_aq [ ]'2 --> [ X_d ]'2 ]'1;   <-- disabled */
+
+    /* SC partition equilibration (some oil→aqueous conversion persists) */
+    (?) [X_d --> X_aq]'1;
+    (?) [X_aq --> X_d]'1;
+
+    /* ── VE rules ─────────────────────────────────────────────────────── */
+
+    [X_aq --> X_clr]'2;
+    (?) [X_aq --> M]'2;
+    [X_clr --> X_clr, @d]'2;
+
+    /* Severe IL-1β positive feedback (constitutive self-amplification) */
+    [il1b --> il1b, il1b]'2;
+
+    /* TNF-α positive feedback */
+    [tnfa --> tnfa, tnfa]'2;
+
+    /* NF-κB constitutive cycle (severe: persists indefinitely) */
+    [nfkb_active --> nfkb_active, il1b, tnfa]'2;
+
+    /* Cytokine-amplified drug flux — 2 copies for severe amplification */
+    [il1b, X_aq --> X_aq, X_aq, il1b]'2;
+    [tnfa, X_aq --> X_aq, X_aq, tnfa]'2;
+
+    /* Donor replenishment */
+    [X_aq --> X_d]'1;
+}
