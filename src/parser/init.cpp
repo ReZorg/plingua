@@ -50,7 +50,19 @@ void Parser::addFile(const char* file, bool ignoreWarning)
 void Parser::addFile(const char* file, const boost::filesystem::path& base, bool ignoreWarning)
 {
 	using namespace boost::filesystem;
-	addFile(absolute(path(file),base.parent_path()),ignoreWarning);
+	path p = absolute(path(file), base.parent_path());
+	if (is_regular_file(p)) {
+		addFile(p, ignoreWarning);
+		return;
+	}
+	for (unsigned i = 0; i < includePaths.size(); i++) {
+		path ip = absolute(path(file), includePaths[i]);
+		if (is_regular_file(ip)) {
+			addFile(ip, ignoreWarning);
+			return;
+		}
+	}
+	addFile(p, ignoreWarning);
 }
 
 void Parser::addFile(const boost::filesystem::path& p, bool ignoreWarning)
