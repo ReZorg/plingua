@@ -60,6 +60,26 @@ Standard membrane computing models: transition, active membranes, tissue, SAT, P
 
 ---
 
+## FinOps: Membrane Reconciliation (accospace + isabellex + fincosys)
+
+`examples/finops/` re-draws the **accospace metagraph** of the fincosys
+ecosystem as a transition P system whose evolution *is* the reconciliation of
+the whole supply chain: every cent is a token, every check is an annihilation
+`L, R --> #`, every membrane of a kind (statement, account, entity) obeys the
+same rule schema in the same step, and reconciled membranes dissolve so that
+the skin's halting multiset is the exception report. The residual of a
+membrane is exactly its imbalance (`cogpy/isabellex` `Fin_Membrane.thy`).
+
+```bash
+make check-finops     # compile + simulate the three finops models
+```
+
+Spec: `docs/FINOPS_MEMBRANE_SPEC.md`. Generated models come from
+`fincosys/accospace` `scripts/export_membrane_psystem.py`; the native twin is
+`o9nn/ggnumlcash.cpp` `examples/financial-sim/membrane-reconciler.h`.
+
+---
+
 ## M-Lingua Extension
 
 M-Lingua (`.mli`) extends P-Lingua with support for **Morphogenetic Systems** — computational models combining membrane computing with spatial geometry and polytopic tile self-assembly (based on Sosík et al. and the [Cytos simulator](https://github.com/ReZorg/Cytos)).
