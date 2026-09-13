@@ -32,6 +32,17 @@ BISON=bison
 
 all: grammar compiler simulator mcompiler msimulator rcompiler extensions
 
+# FinOps membrane reconciliation models (accospace + isabellex + fincosys)
+FINOPS_MODELS = membrane_reconciliation_minimal fincosys_fixture_reconciliation accospace_grouped_reconciliation
+
+check-finops: compiler simulator
+	@mkdir -p $(ODIR)/finops
+	@for m in $(FINOPS_MODELS); do \
+	  echo "== $$m"; \
+	  $(BDIR)/$(BIN_PLINGUA) examples/finops/$$m.pli -o $(ODIR)/finops/$$m.json -n || exit 1; \
+	  $(BDIR)/$(BIN_PSIM) $(ODIR)/finops/$$m.json -v 1 | grep -A1 'SKIN MEMBRANE' | tail -1; \
+	done
+
 grammar: y.tab.c lex.yy.c
 
 compiler: $(OBJ_PLINGUA) $(BIN_PLINGUA) 

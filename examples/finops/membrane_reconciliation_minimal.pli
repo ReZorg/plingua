@@ -1,0 +1,108 @@
+/*
+ * membrane_reconciliation_minimal.pli
+ *
+ * Membrane computing financial reconciliation -- the smallest complete
+ * instance of the accospace / isabellex / fincosys finops model.
+ *
+ * P-system type: transition P system with cooperative rules and dissolution
+ * Category: financial reconciliation (accospace metagraph cross-check)
+ * Complexity: L2 (intermediate)
+ *
+ * Mathematical image
+ * ------------------
+ * A balance is a multiset of unary tokens (one token per cent).  A check is
+ * an annihilation  L, R --> #  between a left species and a right species.
+ * Any left token may annihilate any right token, so a membrane's unique
+ * normal form under exhaustive annihilation holds tokens of ONE side only,
+ * and their count is |sum L - sum R|.  The residual IS the imbalance; a
+ * reconciled membrane annihilates to the empty multiset.
+ *
+ * Membranes are nested by kind and every membrane of a kind carries the same
+ * label range, so one rule schema fires in every membrane of that kind in
+ * the same step -- all entities of a given kind are processed synchronously:
+ *
+ *     0         ecosystem (skin)   inter-company legs, round trips
+ *     101..     entities           intra-entity transfers
+ *     201..     accounts           statement chain, master balance
+ *     301..     statements         internal reconciliation
+ *
+ * Each membrane counts a clock down; at one it dissolves (@d) and its
+ * residual rises one level.  After the last wave the skin holds the
+ * SEDIMENT: every unmatched token of the whole ecosystem, indexed by origin.
+ *
+ * Wave schedule
+ *   step 1  statements: o+c vs z+d annihilate       step 2  statements dissolve
+ *   step 3  accounts:   zc{s} vs oc{s+1}, mz{a}     step 4  accounts dissolve
+ *   step 5  entities:   xo{r} vs xi{r}               step 6  entities dissolve
+ *   step 7  ecosystem:  out{r} vs in{r}, flow cycles
+ *
+ * Instance
+ *   entity 1 (label 101): account 1 (201) with statements 1, 2 (301, 302)
+ *   entity 2 (label 102): account 2 (202) with statement 3 (303)
+ *
+ *   statement 1: open 10, credits 5, close 15            -- reconciled
+ *   statement 2: open 15, debits 3, close 12             -- reconciled, chains from 1
+ *   statement 3: open  8, credits 4, close 13            -- imbalance of 1 (13 != 12)
+ *   account 1 master closing 12, account 2 master closing 13
+ *   payment ref 7 from account 1 to account 2 (out{7} / in{7}), flows 1->2 and 2->1
+ *
+ * Expected sediment (skin multiset when the system halts, step 7):
+ *   z{3}       statement 3 is out by 1 on the closing side
+ *   icm{7}     inter-company payment 7 matched on both sides
+ *   rt{1,2}    round trip between entity 1 and entity 2
+ *
+ * Run:
+ *   plingua examples/finops/membrane_reconciliation_minimal.pli -o /tmp/m.json
+ *   psim /tmp/m.json -v 2
+ */
+
+@model<transition>
+@include "../transition_model.pli"
+
+def main()
+{
+  E = 2; A = 2; S = 3; R = 9;
+
+  /* ecosystem > entity > account > statement */
+  @mu = [ [ [ []'301 []'302 ]'201 ]'101  [ [ []'303 ]'202 ]'102 ]'0;
+
+  /* statements: o open, c credits, d debits, z close; oc/zc chain copies; k clock */
+  @ms(301) = o{1}*10, c{1}*5,  z{1}*15, oc{1}*10, zc{1}*15, k{2};
+  @ms(302) = o{2}*15, d{2}*3,  z{2}*12, oc{2}*15, zc{2}*12, k{2};
+  @ms(303) = o{3}*8,  c{3}*4,  z{3}*13, oc{3}*8,  zc{3}*13, k{2};
+
+  /* accounts: master closing balance, payment legs, flow markers, ka clock */
+  @ms(201) = ka{4}, mz{1}*12, out{7}, flow{1,2};
+  @ms(202) = ka{4}, mz{2}*13, in{7},  flow{2,1};
+
+  /* entities: ke clock */
+  @ms(101) = ke{6};
+  @ms(102) = ke{6};
+
+  /* Wave 1 -- every statement, synchronously: o + c  vs  z + d */
+  [o{s}, z{s} --> #]'{300+s} : 1<=s<=S;
+  [c{s}, d{s} --> #]'{300+s} : 1<=s<=S;
+  [o{s}, d{s} --> #]'{300+s} : 1<=s<=S;
+  [c{s}, z{s} --> #]'{300+s} : 1<=s<=S;
+  [k{2} --> k{1}]'{300+s}    : 1<=s<=S;
+  [k{1} --> @d]'{300+s}      : 1<=s<=S;
+
+  /* Wave 2 -- every account, synchronously: chain continuity and master balance */
+  [zc{1}, oc{2} --> #]'201;          /* statement 1 closes on what statement 2 opens */
+  [oc{1} --> #]'201;                 /* first opening has no predecessor */
+  [zc{2}, mz{1} --> #]'201;          /* last closing vs master closing */
+  [oc{3} --> #]'202;
+  [zc{3}, mz{2} --> #]'202;
+  [ka{i} --> ka{i-1}]'{200+a} : 1<=a<=A, 2<=i<=4;
+  [ka{1} --> @d]'{200+a}      : 1<=a<=A;
+
+  /* Wave 3 -- every entity, synchronously: intra-entity transfers */
+  [xo{r}, xi{r} --> #]'{100+e} : 1<=e<=E, 1<=r<=R;
+  [ke{i} --> ke{i-1}]'{100+e}  : 1<=e<=E, 2<=i<=6;
+  [ke{1} --> @d]'{100+e}       : 1<=e<=E;
+
+  /* Wave 4 -- the ecosystem: inter-company legs, round trips, circular flows */
+  [out{r}, in{r} --> icm{r}]'0 : 1<=r<=R;
+  [flow{x,y}, flow{y,x} --> rt{x,y}]'0 : x+1<=y<=E, 1<=x<=E;
+  [flow{x,y}, flow{y,w}, flow{w,x} --> cyc{x,y,w}]'0 : y != w, x+1<=w<=E, x+1<=y<=E, 1<=x<=E;
+}
