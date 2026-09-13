@@ -33,7 +33,7 @@ BISON=bison
 all: grammar compiler simulator mcompiler msimulator rcompiler extensions
 
 # FinOps membrane reconciliation models (accospace + isabellex + fincosys)
-FINOPS_MODELS = membrane_reconciliation_minimal fincosys_fixture_reconciliation accospace_grouped_reconciliation
+FINOPS_MODELS = membrane_reconciliation_minimal fincosys_fixture_reconciliation accospace_grouped_reconciliation fincosys_records_reconciliation
 
 check-finops: compiler simulator
 	@mkdir -p $(ODIR)/finops

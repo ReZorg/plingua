@@ -114,11 +114,20 @@ the order the compiler binds them in.
 | `examples/finops/membrane_reconciliation_minimal.pli` | 2 entities, 2 accounts, 3 statements, one payment, one round trip (hand-written) | `z{3}, icm{7}, rt{1,2}` |
 | `examples/finops/fincosys_fixture_reconciliation.pli` | HOL-Fin-Test fixture (AYM 202–204 continuous, PF 5/7 missing window) + RegimA main/savings + 6 payments incl. a 3-cycle and a one-sided leg (generated) | `z{4}*500, zc{6}*2000, oc{7}*2500, out{6}, icm{1,2,3,5}, rt{1,2}, rt{2,3}, cyc{1,3,2}` |
 | `examples/finops/accospace_grouped_reconciliation.pli` | accospace `tests/cpp/fixtures/grouped` as-is (generated) | `d{4}*1050, z{5}*1000, zc{3}*33975, mz{1}*33975, mz{2}*7400` |
+| `examples/finops/fincosys_records_reconciliation.pli` | the whole RegimA corpus from accospace `records/atomese`: 17 entities, 69 accounts, 3,433 statements (generated with `--records`) | 119 species: 54 `zc`, 46 `oc` (missing windows, balance breaks), 13 `mz` (inventory mismatches), 6 internal imbalances; matches the closed form (`--compare`) |
 
 The generated models come from
 `fincosys/accospace` `scripts/export_membrane_psystem.py`, which reads the
 same master files and `fincodat.statement.v1` corpus the accospace builder
-reads. Regenerate rather than hand-edit.
+reads, or (`--records`) an `accospace records` output directory: its balance
+schedules supply opening, closing, credits and debits per statement and the
+link class of every chain link, which decides the pairings. Negative balances
+(credit cards) are translated per account by a constant, which leaves every
+residual unchanged. Regenerate rather than hand-edit.
+
+The full corpus compiles in about a second and settles on `psim` in under two:
+3,433 statement membranes verify in one step and dissolve in the next, and the
+seven-step wave count is the same as for the two-entity minimal model.
 
 ```bash
 make compiler simulator
